@@ -20,6 +20,22 @@ internal sealed class ApiClient
         {
             throw new ArgumentException("BaseAddress is required.", nameof(options));
         }
+        if (_options.Timeout <= TimeSpan.Zero)
+        {
+            throw new ArgumentOutOfRangeException(nameof(options), "Timeout must be positive.");
+        }
+        if (_options.MaxRetries < 0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(options), "MaxRetries cannot be negative.");
+        }
+        if (_options.RetryBaseDelay < TimeSpan.Zero)
+        {
+            throw new ArgumentOutOfRangeException(nameof(options), "RetryBaseDelay cannot be negative.");
+        }
+        if (_options.RetryMaxDelay < TimeSpan.Zero)
+        {
+            throw new ArgumentOutOfRangeException(nameof(options), "RetryMaxDelay cannot be negative.");
+        }
     }
 
     public RateLimitSnapshot? LatestRateLimit => Volatile.Read(ref _latestRateLimit);
@@ -31,6 +47,25 @@ internal sealed class ApiClient
         CancellationToken cancellationToken)
     {
         var requestUri = BuildUri(path, versioned, query);
+        var retryCount = 0;
+        while (true)
+        {
+            try
+            {
+                return await SendOnceAsync(requestUri, cancellationToken).ConfigureAwait(false);
+            }
+            catch (MarketDataException exception) when (
+                retryCount < _options.MaxRetries && IsRetryable(exception))
+            {
+                var delay = RetryDelay(exception, retryCount);
+                retryCount++;
+                await Task.Delay(delay, cancellationToken).ConfigureAwait(false);
+            }
+        }
+    }
+
+    private async Task<InternalApiResponse> SendOnceAsync(Uri requestUri, CancellationToken cancellationToken)
+    {
         using var request = new HttpRequestMessage(HttpMethod.Get, requestUri);
         using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         timeoutCts.CancelAfter(_options.Timeout);
@@ -42,13 +77,32 @@ internal sealed class ApiClient
 
         request.Headers.UserAgent.ParseAdd(_options.UserAgent);
 
-        HttpResponseMessage response;
         try
         {
-            response = await _httpClient.SendAsync(
+            using var response = await _httpClient.SendAsync(
                 request,
                 HttpCompletionOption.ResponseHeadersRead,
                 requestCancellationToken).ConfigureAwait(false);
+
+            await using var responseContent = await response.Content.ReadAsStreamAsync(requestCancellationToken)
+                .ConfigureAwait(false);
+            using var memory = new MemoryStream();
+            await responseContent.CopyToAsync(memory, requestCancellationToken).ConfigureAwait(false);
+            var body = memory.ToArray();
+            var requestId = GetHeader(response, "x-request-id") ?? GetHeader(response, "cf-ray");
+            var rateLimit = ParseRateLimit(response.Headers);
+            if (rateLimit is not null)
+            {
+                Volatile.Write(ref _latestRateLimit, rateLimit);
+            }
+
+            var result = new InternalApiResponse(body, requestUri, (int)response.StatusCode, requestId, rateLimit);
+            if ((int)response.StatusCode is >= 200 and < 300 or 404)
+            {
+                return result;
+            }
+
+            throw CreateException(response.StatusCode, requestUri, requestId, response.Headers, body);
         }
         catch (OperationCanceledException exception) when (!cancellationToken.IsCancellationRequested)
         {
@@ -64,26 +118,32 @@ internal sealed class ApiClient
                 ErrorContext.ForNoResponse(requestUri, DateTimeOffset.UtcNow),
                 exception);
         }
+    }
 
-        await using var responseContent = await response.Content.ReadAsStreamAsync(requestCancellationToken)
-            .ConfigureAwait(false);
-        using var memory = new MemoryStream();
-        await responseContent.CopyToAsync(memory, requestCancellationToken).ConfigureAwait(false);
-        var body = memory.ToArray();
-        var requestId = GetHeader(response, "x-request-id") ?? GetHeader(response, "cf-ray");
-        var rateLimit = ParseRateLimit(response.Headers);
-        if (rateLimit is not null)
+    private static bool IsRetryable(MarketDataException exception) =>
+        exception is NetworkException
+        || exception.StatusCode is 408 or 429 or >= 500;
+
+    private TimeSpan RetryDelay(MarketDataException exception, int retryCount)
+    {
+        var retryAfter = exception switch
         {
-            Volatile.Write(ref _latestRateLimit, rateLimit);
+            RateLimitException rateLimit => rateLimit.RetryAfter,
+            ServerException server => server.RetryAfter,
+            _ => null
+        };
+        if (retryAfter is { } serverDelay)
+        {
+            return serverDelay < TimeSpan.Zero ? TimeSpan.Zero : serverDelay;
         }
 
-        var result = new InternalApiResponse(body, requestUri, (int)response.StatusCode, requestId, rateLimit);
-        if ((int)response.StatusCode is >= 200 and < 300 or 404)
-        {
-            return result;
-        }
-
-        throw CreateException(response.StatusCode, requestUri, requestId, response.Headers, body);
+        var multiplier = 1L << Math.Min(retryCount, 30);
+        var ticks = Math.Min(
+            _options.RetryMaxDelay.Ticks,
+            _options.RetryBaseDelay.Ticks > long.MaxValue / multiplier
+                ? long.MaxValue
+                : _options.RetryBaseDelay.Ticks * multiplier);
+        return TimeSpan.FromTicks(ticks);
     }
 
     private Uri BuildUri(

@@ -14,7 +14,7 @@ internal static class JsonResponseParser
             using var document = JsonDocument.Parse(response.Body);
             return document.RootElement.Clone();
         }
-        catch (JsonException exception)
+        catch (Exception exception) when (IsParseFailure(exception))
         {
             throw new ParseException(
                 "The Market Data API returned invalid JSON.",
@@ -111,14 +111,22 @@ internal static class JsonResponseParser
         {
             return decoder(Parse(response));
         }
-        catch (JsonException exception)
+        catch (Exception exception) when (IsParseFailure(exception))
         {
             throw new ParseException(
                 "The Market Data API response did not match the expected shape.",
                 ErrorContext.ForResponse(response.RequestId, response.RequestUrl, response.StatusCode, DateTimeOffset.UtcNow),
                 exception);
         }
+
     }
+
+    private static bool IsParseFailure(Exception exception) =>
+        exception is JsonException
+        or InvalidOperationException
+        or FormatException
+        or OverflowException
+        or ArgumentOutOfRangeException;
 
     public static TResponse CreateResponse<TResponse, T>(
         InternalApiResponse response,

@@ -21,6 +21,7 @@
 - **Mutual Funds**: Historical candles and pricing data
 - **Market Status**: Real-time market open/closed status for multiple countries
 - **Multiple Output Formats**: Typed objects, JSON, CSV, or HTML
+- **Resilient Transport**: Retries transient failures with exponential backoff and honors `Retry-After`
 - **Built-in Retry Logic**: Automatic retry with exponential backoff for reliable data fetching
 - **Rate Limit Tracking**: Per-response and client-level rate-limit snapshots
 - **Type-Safe**: Records, a sealed exception hierarchy, and builder-based request objects

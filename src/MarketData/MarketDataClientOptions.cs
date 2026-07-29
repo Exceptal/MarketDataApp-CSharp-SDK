@@ -13,6 +13,12 @@ public sealed record MarketDataClientOptions
     public string ApiVersion { get; init; } = "v1";
     /// <summary>Default request timeout.</summary>
     public TimeSpan Timeout { get; init; } = TimeSpan.FromSeconds(99);
+    /// <summary>Maximum number of retries after a transient request failure.</summary>
+    public int MaxRetries { get; init; } = 3;
+    /// <summary>Initial exponential-backoff delay between retries.</summary>
+    public TimeSpan RetryBaseDelay { get; init; } = TimeSpan.FromMilliseconds(250);
+    /// <summary>Maximum exponential-backoff delay when the server does not provide Retry-After.</summary>
+    public TimeSpan RetryMaxDelay { get; init; } = TimeSpan.FromSeconds(30);
     /// <summary>User-agent value sent by the client.</summary>
     public string UserAgent { get; init; } = "marketdata-sdk-csharp/0.1.0";
 
