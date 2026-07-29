@@ -20,6 +20,15 @@ internal static class RequestQuery
         return query;
     }
 
+    public static List<KeyValuePair<string, string?>> Csv(MarketDataRequestOptions? options)
+    {
+        var query = From(options);
+        Add(query, "format", "csv");
+        Add(query, "headers", options?.Headers?.ToString().ToLowerInvariant());
+        Add(query, "human", options?.Human?.ToString().ToLowerInvariant());
+        return query;
+    }
+
     public static void Add(
         ICollection<KeyValuePair<string, string?>> query,
         string name,

@@ -1,4 +1,5 @@
 using System.Globalization;
+using System.Text;
 using System.Text.Json;
 using MarketData.Exceptions;
 
@@ -136,4 +137,7 @@ internal static class JsonResponseParser
         };
         return customize is null ? result : customize(result);
     }
+
+    public static CsvResponse CreateCsvResponse(InternalApiResponse response) =>
+        CreateResponse<CsvResponse, string>(response, Encoding.UTF8.GetString(response.Body));
 }

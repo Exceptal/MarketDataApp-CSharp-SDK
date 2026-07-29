@@ -1,6 +1,6 @@
 namespace MarketData;
 
-/// <summary>Optional parameters shared by JSON data endpoints.</summary>
+/// <summary>Optional parameters shared by data endpoints.</summary>
 public sealed record MarketDataRequestOptions
 {
     /// <summary>Response date/time format.</summary>
@@ -13,4 +13,8 @@ public sealed record MarketDataRequestOptions
     public int? Offset { get; init; }
     /// <summary>Requested response columns.</summary>
     public IReadOnlyList<string>? Columns { get; init; }
+    /// <summary>Whether CSV output includes a header row.</summary>
+    public bool? Headers { get; init; }
+    /// <summary>Whether CSV output uses human-readable field names and values.</summary>
+    public bool? Human { get; init; }
 }

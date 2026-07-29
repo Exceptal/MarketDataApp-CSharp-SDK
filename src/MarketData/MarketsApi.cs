@@ -34,4 +34,22 @@ public sealed class MarketsApi
                 "date", "status"));
         return JsonResponseParser.CreateResponse<MarketStatusResponse, IReadOnlyList<MarketStatus>>(response, values);
     }
+
+    /// <summary>Gets exchange open/closed status as CSV.</summary>
+    public async Task<CsvResponse> GetStatusCsvAsync(
+        MarketStatusRequest request,
+        MarketDataRequestOptions? options = null,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+        var query = RequestQuery.Csv(options);
+        RequestQuery.Add(query, "country", request.Country);
+        RequestQuery.Add(query, "date", request.Date is { } date ? RequestQuery.Date(date) : null);
+        RequestQuery.Add(query, "from", request.From is { } from ? RequestQuery.Date(from) : null);
+        RequestQuery.Add(query, "to", request.To is { } to ? RequestQuery.Date(to) : null);
+        RequestQuery.Add(query, "countback", request.Countback?.ToString());
+        var response = await _apiClient.GetAsync("markets/status", true, query, cancellationToken)
+            .ConfigureAwait(false);
+        return JsonResponseParser.CreateCsvResponse(response);
+    }
 }

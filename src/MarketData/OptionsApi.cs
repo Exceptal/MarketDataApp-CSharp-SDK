@@ -150,6 +150,112 @@ public sealed class OptionsApi
         return JsonResponseParser.CreateResponse<OptionsChainResponse, IReadOnlyList<OptionQuote>>(response, values);
     }
 
+    /// <summary>Resolves user input to a canonical OCC option symbol as CSV.</summary>
+    public async Task<CsvResponse> GetLookupCsvAsync(
+        OptionsLookupRequest request,
+        MarketDataRequestOptions? options = null,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+        return await GetCsvAsync(
+            $"options/lookup/{Uri.EscapeDataString(request.UserInput)}",
+            RequestQuery.Csv(options),
+            cancellationToken).ConfigureAwait(false);
+    }
+
+    /// <summary>Gets available expiration dates for an underlying symbol as CSV.</summary>
+    public async Task<CsvResponse> GetExpirationsCsvAsync(
+        OptionsExpirationsRequest request,
+        MarketDataRequestOptions? options = null,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+        var query = RequestQuery.Csv(options);
+        Add(query, "strike", request.Strike);
+        AddDate(query, "date", request.Date);
+        return await GetCsvAsync(
+            $"options/expirations/{Uri.EscapeDataString(request.Symbol)}", query, cancellationToken)
+            .ConfigureAwait(false);
+    }
+
+    /// <summary>Gets historical or current quotes for one OCC option symbol as CSV.</summary>
+    public async Task<CsvResponse> GetQuoteCsvAsync(
+        OptionsQuoteRequest request,
+        MarketDataRequestOptions? options = null,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+        var query = RequestQuery.Csv(options);
+        AddDateWindow(query, request.Date, request.From, request.To, request.Countback);
+        return await GetCsvAsync(
+            $"options/quotes/{Uri.EscapeDataString(request.OptionSymbol)}", query, cancellationToken)
+            .ConfigureAwait(false);
+    }
+
+    /// <summary>Gets quotes for multiple OCC option symbols as CSV, one response per symbol.</summary>
+    public async Task<IReadOnlyDictionary<string, CsvResponse>> GetQuotesCsvAsync(
+        OptionsQuotesRequest request,
+        MarketDataRequestOptions? options = null,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+        var tasks = request.OptionSymbols.Select(async symbol =>
+        {
+            var query = RequestQuery.Csv(options);
+            AddDateWindow(query, request.Date, request.From, request.To, request.Countback);
+            var response = await GetCsvAsync(
+                $"options/quotes/{Uri.EscapeDataString(symbol)}", query, cancellationToken)
+                .ConfigureAwait(false);
+            return (symbol, response);
+        });
+        var results = await Task.WhenAll(tasks).ConfigureAwait(false);
+        return results.ToDictionary(item => item.symbol, item => item.response);
+    }
+
+    /// <summary>Gets the options chain for an underlying symbol as CSV.</summary>
+    public async Task<CsvResponse> GetChainCsvAsync(
+        OptionsChainRequest request,
+        MarketDataRequestOptions? options = null,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+        var query = RequestQuery.Csv(options);
+        AddExpirationFilter(query, request.Expiration);
+        AddBoolean(query, "weekly", request.Weekly);
+        AddBoolean(query, "monthly", request.Monthly);
+        AddBoolean(query, "quarterly", request.Quarterly);
+        AddBoolean(query, "am", request.Am);
+        AddBoolean(query, "pm", request.Pm);
+        AddBoolean(query, "nonstandard", request.NonStandard);
+        RequestQuery.Add(query, "strike", FormatStrikeFilter(request.Strike));
+        Add(query, "delta", request.Delta);
+        Add(query, "strikeLimit", request.StrikeLimit);
+        RequestQuery.Add(query, "range", request.StrikeRangeFilter?.ToWireValue());
+        Add(query, "minBid", request.MinBid);
+        Add(query, "maxBid", request.MaxBid);
+        Add(query, "minAsk", request.MinAsk);
+        Add(query, "maxAsk", request.MaxAsk);
+        Add(query, "maxBidAskSpread", request.MaxBidAskSpread);
+        Add(query, "maxBidAskSpreadPct", request.MaxBidAskSpreadPct);
+        Add(query, "minOpenInterest", request.MinOpenInterest);
+        Add(query, "minVolume", request.MinVolume);
+        RequestQuery.Add(query, "side", request.Side?.ToWireValue());
+        AddDate(query, "date", request.Date);
+        return await GetCsvAsync(
+            $"options/chain/{Uri.EscapeDataString(request.Symbol)}", query, cancellationToken)
+            .ConfigureAwait(false);
+    }
+
+    private async Task<CsvResponse> GetCsvAsync(
+        string path,
+        IEnumerable<KeyValuePair<string, string?>> query,
+        CancellationToken cancellationToken)
+    {
+        var response = await _apiClient.GetAsync(path, true, query, cancellationToken)
+            .ConfigureAwait(false);
+        return JsonResponseParser.CreateCsvResponse(response);
+    }
+
     private async Task<OptionsQuotesResponse> GetQuoteResponseAsync(
         string optionSymbol,
         DateOnly? date,

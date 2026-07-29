@@ -210,6 +210,106 @@ public sealed class StocksApi
         return JsonResponseParser.CreateResponse<StockEarningsResponse, IReadOnlyList<StockEarning>>(response, values);
     }
 
+    /// <summary>Gets a CSV quote for one stock symbol.</summary>
+    public async Task<CsvResponse> GetQuoteCsvAsync(
+        StockQuoteRequest request,
+        MarketDataRequestOptions? options = null,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+        var query = RequestQuery.Csv(options);
+        AddBoolean(query, "extended", request.Extended);
+        AddBoolean(query, "candle", request.Candle);
+        AddBoolean(query, "52week", request.Week52);
+        return await GetCsvAsync(
+            $"stocks/quotes/{Uri.EscapeDataString(request.Symbol)}", query, cancellationToken)
+            .ConfigureAwait(false);
+    }
+
+    /// <summary>Gets CSV prices for multiple stock symbols.</summary>
+    public async Task<CsvResponse> GetPricesCsvAsync(
+        StockPricesRequest request,
+        MarketDataRequestOptions? options = null,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+        var query = RequestQuery.Csv(options);
+        RequestQuery.Add(query, "symbols", string.Join(",", request.Symbols));
+        return await GetCsvAsync("stocks/prices", query, cancellationToken).ConfigureAwait(false);
+    }
+
+    /// <summary>Gets CSV quotes for multiple stock symbols.</summary>
+    public async Task<CsvResponse> GetQuotesCsvAsync(
+        StockQuotesRequest request,
+        MarketDataRequestOptions? options = null,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+        var query = RequestQuery.Csv(options);
+        RequestQuery.Add(query, "symbols", string.Join(",", request.Symbols));
+        AddBoolean(query, "extended", request.Extended);
+        AddBoolean(query, "candle", request.Candle);
+        AddBoolean(query, "52week", request.Week52);
+        return await GetCsvAsync("stocks/quotes", query, cancellationToken).ConfigureAwait(false);
+    }
+
+    /// <summary>Gets CSV OHLCV candles for a stock symbol.</summary>
+    public async Task<CsvResponse> GetCandlesCsvAsync(
+        StockCandlesRequest request,
+        MarketDataRequestOptions? options = null,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+        var query = RequestQuery.Csv(options);
+        AddDateWindow(query, request.Date, request.From, request.To, request.Countback);
+        RequestQuery.Add(query, "exchange", request.Exchange);
+        AddBoolean(query, "extended", request.Extended);
+        RequestQuery.Add(query, "country", request.Country);
+        AddBoolean(query, "adjustsplits", request.AdjustSplits);
+        AddBoolean(query, "adjustdividends", request.AdjustDividends);
+        var path = $"stocks/candles/{Uri.EscapeDataString(request.Resolution.WireValue)}/{Uri.EscapeDataString(request.Symbol)}";
+        return await GetCsvAsync(path, query, cancellationToken).ConfigureAwait(false);
+    }
+
+    /// <summary>Gets CSV news articles for a stock symbol.</summary>
+    public async Task<CsvResponse> GetNewsCsvAsync(
+        StockNewsRequest request,
+        MarketDataRequestOptions? options = null,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+        var query = RequestQuery.Csv(options);
+        AddDateWindow(query, request.Date, request.From, request.To, request.Countback);
+        return await GetCsvAsync(
+            $"stocks/news/{Uri.EscapeDataString(request.Symbol)}", query, cancellationToken)
+            .ConfigureAwait(false);
+    }
+
+    /// <summary>Gets CSV earnings data for a stock symbol.</summary>
+    public async Task<CsvResponse> GetEarningsCsvAsync(
+        StockEarningsRequest request,
+        MarketDataRequestOptions? options = null,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+        var query = RequestQuery.Csv(options);
+        AddDateWindow(query, request.Date, request.From, request.To, request.Countback);
+        RequestQuery.Add(query, "report", request.Report);
+        return await GetCsvAsync(
+            $"stocks/earnings/{Uri.EscapeDataString(request.Symbol)}", query, cancellationToken)
+            .ConfigureAwait(false);
+    }
+
+    private async Task<CsvResponse> GetCsvAsync(
+        string path,
+        IEnumerable<KeyValuePair<string, string?>> query,
+        CancellationToken cancellationToken)
+    {
+        var response = await _apiClient.GetAsync(path, true, query, cancellationToken)
+            .ConfigureAwait(false);
+        return JsonResponseParser.CreateCsvResponse(response);
+    }
+
     private static IReadOnlyList<StockQuote> ParseQuotes(System.Text.Json.JsonElement root) =>
         JsonResponseParser.ReadParallelArray(
             root,

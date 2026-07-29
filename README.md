@@ -26,6 +26,25 @@
 - **Type-Safe**: Records, a sealed exception hierarchy, and builder-based request objects
 - **Zero Config**: Works out of the box with sensible defaults
 
+## CSV responses
+
+Stocks, funds, options, and market-status endpoints expose CSV methods alongside their typed
+JSON methods. CSV responses preserve the normal response metadata and expose the raw content
+through `Values`, `Csv`, or `RawBody`:
+
+```csharp
+var response = await client.Stocks.GetPricesCsvAsync(
+    new StockPricesRequest("AAPL", "MSFT"),
+    new MarketDataRequestOptions
+    {
+        Headers = true,
+        Human = true,
+        Columns = ["symbol", "mid"]
+    });
+
+File.WriteAllText("prices.csv", response.Csv);
+```
+
 ## Requirements
 
 - **dotnet 10.0 or newer**. The project is compiled with
