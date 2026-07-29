@@ -8,5 +8,5 @@ public sealed record StockNewsResponse : MarketDataResponse<IReadOnlyList<StockN
     /// <summary>
     /// Timestamp of the most recent article in the response, or <c>null</c> for historical queries.
     /// </summary>
-    public DateTimeOffset? Updated { get; internal init; }
+    public DateTimeOffset? Updated { get; internal set; }
 }

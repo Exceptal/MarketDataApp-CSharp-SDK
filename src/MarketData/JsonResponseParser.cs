@@ -101,6 +101,9 @@ internal static class JsonResponseParser
         return null;
     }
 
+    public static DateTimeOffset? Timestamp(JsonElement root, string name) =>
+        root.TryGetProperty(name, out var value) ? ToDateTime(value) : null;
+
     public static T Decode<T>(InternalApiResponse response, Func<JsonElement, T> decoder)
     {
         try
@@ -118,10 +121,11 @@ internal static class JsonResponseParser
 
     public static TResponse CreateResponse<TResponse, T>(
         InternalApiResponse response,
-        T values)
+        T values,
+        Func<TResponse, TResponse>? customize = null)
         where TResponse : MarketDataResponse<T>, new()
     {
-        return new TResponse
+        var result = new TResponse
         {
             Values = values,
             StatusCode = response.StatusCode,
@@ -130,5 +134,6 @@ internal static class JsonResponseParser
             RateLimit = response.RateLimit,
             RawBodyBytes = response.Body
         };
+        return customize is null ? result : customize(result);
     }
 }
