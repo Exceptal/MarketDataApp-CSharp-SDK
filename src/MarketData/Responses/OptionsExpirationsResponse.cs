@@ -6,5 +6,5 @@ namespace MarketData;
 public sealed record OptionsExpirationsResponse : MarketDataResponse<IReadOnlyList<DateTimeOffset>>
 {
     /// <summary>Timestamp of the last data update, or <c>null</c> on a no-data response.</summary>
-    public DateTimeOffset? Updated { get; internal init; }
+    public DateTimeOffset? Updated { get; internal set; }
 }

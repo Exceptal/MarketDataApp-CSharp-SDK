@@ -18,6 +18,7 @@ public sealed class MarketDataClient
         Markets = new MarketsApi(_apiClient);
         Stocks = new StocksApi(_apiClient);
         Funds = new FundsApi(_apiClient);
+        Options = new OptionsApi(_apiClient);
     }
 
     /// <summary>Utility endpoints.</summary>
@@ -28,6 +29,8 @@ public sealed class MarketDataClient
     public StocksApi Stocks { get; }
     /// <summary>Fund and ETF endpoints.</summary>
     public FundsApi Funds { get; }
+    /// <summary>Options endpoints.</summary>
+    public OptionsApi Options { get; }
     /// <summary>Latest complete rate-limit snapshot received by this client.</summary>
     public RateLimitSnapshot? LatestRateLimit => _apiClient.LatestRateLimit;
 }
