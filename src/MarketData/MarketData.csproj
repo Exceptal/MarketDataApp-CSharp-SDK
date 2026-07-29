@@ -1,0 +1,22 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <LangVersion>latest</LangVersion>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <RootNamespace>MarketData</RootNamespace>
+    <AssemblyName>MarketData</AssemblyName>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <Version>0.1.0</Version>
+    <Authors>Market Data</Authors>
+    <Description>Unofficial C#/dotnet SDK for the Market Data API. Provides easy access to real-time and historical financial data.</Description>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <PackageProjectUrl>https://www.marketdata.app/</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/Exceptal/MarketDataApp-CSharp-SDK</RepositoryUrl>
+    <PackageTags>finance;market-data;stocks;options;api;marketdata</PackageTags>
+    <IsPackable>true</IsPackable>
+  </PropertyGroup>
+
+</Project>

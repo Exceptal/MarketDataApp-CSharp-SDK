@@ -1,0 +1,70 @@
+# Visual Studio / .NET Gitignore
+
+# Build output
+bin/
+obj/
+out/
+artifacts/
+
+# Visual Studio temp/user files
+.vs/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+
+# Rider
+.idea/
+*.sln.iml
+
+# ReSharper
+_ReSharper*/
+*.DotSettings.user
+
+# NuGet
+packages/
+*.nupkg
+project.lock.json
+project.fragment.lock.json
+
+# VS Code
+.vscode/
+
+# Publish output
+publish/
+
+# Test results
+TestResults/
+*.trx
+
+# Coverage
+*.coverage
+*.coveragexml
+coverage/
+coverage.opencover.xml
+coverage*.json
+
+# Runtime files
+*.dll
+*.exe
+*.pdb
+*.mdb
+*.ilk
+*.meta
+*.log
+
+# User secrets and local config
+appsettings.Development.json
+secrets.json
+*.userprefs
+
+# OS files
+Thumbs.db
+desktop.ini
+.DS_Store
+
+# Node
+node_modules/
+
+# Dotnet tool files
+.vsconfig
