@@ -28,5 +28,28 @@
 
 ## Requirements
 
-- **dotnet 10.0 or newer**. The published artifact is compiled with
-  `dotnet build`.
+- **dotnet 10.0 or newer**. The project is compiled with
+  `dotnet build` and you can run the tests with `dotnet test`.
+
+## API token configuration
+
+The SDK library does not read secret stores directly. The hosting application should load
+user secrets through the standard .NET configuration system and pass the resulting
+configuration to the library:
+
+```csharp
+var builder = Host.CreateApplicationBuilder(args);
+builder.Configuration.AddUserSecrets<Program>();
+
+var options = MarketDataClientOptions.FromConfiguration(builder.Configuration);
+var client = new MarketDataClient(httpClient, options);
+```
+
+Initialize and store the token without writing it to source control:
+
+```powershell
+dotnet user-secrets init
+dotnet user-secrets set "MarketData:ApiToken" "your-api-token"
+```
+
+The SDK library reads the token from `MarketData:ApiToken`.
