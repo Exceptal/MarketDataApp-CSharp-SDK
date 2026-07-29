@@ -35,14 +35,28 @@ public abstract class MarketDataException : Exception
     /// <summary>Simple class name of this exception type.</summary>
     public string ExceptionType => GetType().Name;
 
+    // "America/New_York" is the IANA ID used by Linux/macOS; "Eastern Standard Time" is the
+    // legacy Windows ID. Resolving both keeps GetSupportInfo() working across every OS this
+    // SDK targets, instead of throwing TimeZoneNotFoundException off Windows.
+    private static readonly Lazy<TimeZoneInfo> EasternTimeZone = new(() =>
+    {
+        try
+        {
+            return TimeZoneInfo.FindSystemTimeZoneById("America/New_York");
+        }
+        catch (TimeZoneNotFoundException)
+        {
+            return TimeZoneInfo.FindSystemTimeZoneById("Eastern Standard Time");
+        }
+    });
+
     /// <summary>
     /// Returns a formatted support-ticket block with all diagnostic fields,
     /// suitable for pasting into a bug report.
     /// </summary>
     public string GetSupportInfo()
     {
-        var tz = TimeZoneInfo.FindSystemTimeZoneById("Eastern Standard Time");
-        var eastern = TimeZoneInfo.ConvertTime(Timestamp, tz);
+        var eastern = TimeZoneInfo.ConvertTime(Timestamp, EasternTimeZone.Value);
         return $"""
             Exception Type : {ExceptionType}
             Message        : {Message}
