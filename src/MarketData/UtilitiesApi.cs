@@ -18,7 +18,7 @@ public sealed class UtilitiesApi
             versioned: false,
             Array.Empty<KeyValuePair<string, string?>>(),
             cancellationToken).ConfigureAwait(false);
-        var values = JsonResponseParser.Decode(
+        var values = JsonResponseParser.DecodeOrDefault(
             response,
             root => JsonResponseParser.ReadParallelArray(
                 root,
@@ -29,7 +29,8 @@ public sealed class UtilitiesApi
                     row.Double("uptimePct30d") ?? throw new JsonException("Missing uptimePct30d."),
                     row.Double("uptimePct90d") ?? throw new JsonException("Missing uptimePct90d."),
                     row.Timestamp("updated") ?? throw new JsonException("Missing updated.")),
-                "service", "status", "online", "uptimePct30d", "uptimePct90d", "updated"));
+                "service", "status", "online", "uptimePct30d", "uptimePct90d", "updated"),
+            Array.Empty<ServiceStatus>());
         return JsonResponseParser.CreateResponse<UtilitiesStatusResponse, IReadOnlyList<ServiceStatus>>(response, values);
     }
 
@@ -41,12 +42,13 @@ public sealed class UtilitiesApi
             versioned: false,
             Array.Empty<KeyValuePair<string, string?>>(),
             cancellationToken).ConfigureAwait(false);
-        var values = JsonResponseParser.Decode(
+        var values = JsonResponseParser.DecodeOrDefault(
             response,
             root => root.EnumerateObject().ToDictionary(
                 property => property.Name,
                 property => property.Value.GetString() ?? string.Empty,
-                StringComparer.OrdinalIgnoreCase));
+                StringComparer.OrdinalIgnoreCase),
+            new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase));
         return JsonResponseParser.CreateResponse<UtilitiesHeadersResponse, IReadOnlyDictionary<string, string>>(response, values);
     }
 

@@ -1,4 +1,5 @@
 using MarketData.Stocks;
+using System.Text;
 using System.Text.Json;
 
 namespace MarketData;
@@ -27,7 +28,7 @@ public sealed class StocksApi
             true,
             query,
             cancellationToken).ConfigureAwait(false);
-        var values = JsonResponseParser.Decode(
+        var values = JsonResponseParser.DecodeOrDefault(
             response,
             root => JsonResponseParser.ReadParallelArray(
                 root,
@@ -50,7 +51,8 @@ public sealed class StocksApi
                     row.Double("52weekHigh"),
                     row.Double("52weekLow")),
                 "symbol", "ask", "askSize", "bid", "bidSize", "mid", "last", "change",
-                "changepct", "volume", "updated", "o", "h", "l", "c", "52weekHigh", "52weekLow"));
+                "changepct", "volume", "updated", "o", "h", "l", "c", "52weekHigh", "52weekLow"),
+            Array.Empty<StockQuote>());
         return JsonResponseParser.CreateResponse<StockQuotesResponse, IReadOnlyList<StockQuote>>(response, values);
     }
 
@@ -65,7 +67,7 @@ public sealed class StocksApi
         RequestQuery.Add(query, "symbols", string.Join(",", request.Symbols));
         var response = await _apiClient.GetAsync("stocks/prices", true, query, cancellationToken)
             .ConfigureAwait(false);
-        var values = JsonResponseParser.Decode(
+        var values = JsonResponseParser.DecodeOrDefault(
             response,
             root => JsonResponseParser.ReadParallelArray(
                 root,
@@ -75,7 +77,8 @@ public sealed class StocksApi
                     row.Double("change"),
                     row.Double("changepct"),
                     row.Timestamp("updated")),
-                "symbol", "mid", "change", "changepct", "updated"));
+                "symbol", "mid", "change", "changepct", "updated"),
+            Array.Empty<StockPrice>());
         return JsonResponseParser.CreateResponse<StockPricesResponse, IReadOnlyList<StockPrice>>(response, values);
     }
 
@@ -93,7 +96,7 @@ public sealed class StocksApi
         AddBoolean(query, "52week", request.Week52);
         var response = await _apiClient.GetAsync("stocks/quotes", true, query, cancellationToken)
             .ConfigureAwait(false);
-        var values = JsonResponseParser.Decode(response, ParseQuotes);
+        var values = JsonResponseParser.DecodeOrDefault(response, ParseQuotes, Array.Empty<StockQuote>());
         return JsonResponseParser.CreateResponse<StockQuotesResponse, IReadOnlyList<StockQuote>>(response, values);
     }
 
@@ -104,29 +107,27 @@ public sealed class StocksApi
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(request);
-        var query = RequestQuery.From(options);
-        AddDateWindow(query, request.Date, request.From, request.To, request.Countback);
-        RequestQuery.Add(query, "exchange", request.Exchange);
-        AddBoolean(query, "extended", request.Extended);
-        RequestQuery.Add(query, "country", request.Country);
-        AddBoolean(query, "adjustsplits", request.AdjustSplits);
-        AddBoolean(query, "adjustdividends", request.AdjustDividends);
-        var path = $"stocks/candles/{Uri.EscapeDataString(request.Resolution.WireValue)}/{Uri.EscapeDataString(request.Symbol)}";
-        var response = await _apiClient.GetAsync(path, true, query, cancellationToken)
-            .ConfigureAwait(false);
-        var values = JsonResponseParser.Decode(
-            response,
-            root => JsonResponseParser.ReadParallelArray(
-                root,
-                row => new StockCandle(
-                    row.Timestamp("t"),
-                    row.Double("o"),
-                    row.Double("h"),
-                    row.Double("l"),
-                    row.Double("c"),
-                    row.Long("v")),
-                "t", "o", "h", "l", "c", "v"));
-        return JsonResponseParser.CreateResponse<StockCandlesResponse, IReadOnlyList<StockCandle>>(response, values);
+        ValidateCandleWindow(request);
+        var chunks = CandleChunks(request);
+        if (chunks.Count == 1)
+        {
+            return await GetCandlesResponseAsync(
+                request, request.From, request.To, options, cancellationToken).ConfigureAwait(false);
+        }
+
+        var responses = await Task.WhenAll(
+            chunks.Select(chunk => GetCandlesResponseAsync(
+                request, chunk.From, chunk.To, options, cancellationToken))).ConfigureAwait(false);
+        var merged = responses.SelectMany(response => response.Values).ToArray();
+        var last = responses[^1];
+        return JsonResponseParser.CreateResponse<StockCandlesResponse, IReadOnlyList<StockCandle>>(
+            new InternalApiResponse(
+                Encoding.UTF8.GetBytes(last.RawBody),
+                last.RequestUrl,
+                last.StatusCode,
+                last.RequestId,
+                last.RateLimit),
+            merged);
     }
 
     /// <summary>Gets news articles for a stock symbol.</summary>
@@ -148,7 +149,7 @@ public sealed class StocksApi
             true,
             query,
             cancellationToken).ConfigureAwait(false);
-        var result = JsonResponseParser.Decode(
+        var result = JsonResponseParser.DecodeOrDefault(
             response,
             root =>
             {
@@ -162,7 +163,8 @@ public sealed class StocksApi
                         row.Timestamp("publicationDate") ?? throw new JsonException("Missing publicationDate.")),
                     "symbol", "headline", "content", "source", "publicationDate");
                 return (Articles: (IReadOnlyList<StockNewsArticle>)articles, Updated: JsonResponseParser.Timestamp(root, "updated"));
-            });
+            },
+            (Articles: (IReadOnlyList<StockNewsArticle>)Array.Empty<StockNewsArticle>(), Updated: (DateTimeOffset?)null));
         return JsonResponseParser.CreateResponse<StockNewsResponse, IReadOnlyList<StockNewsArticle>>(
             response,
             result.Articles,
@@ -188,7 +190,7 @@ public sealed class StocksApi
             true,
             query,
             cancellationToken).ConfigureAwait(false);
-        var values = JsonResponseParser.Decode(
+        var values = JsonResponseParser.DecodeOrDefault(
             response,
             root => JsonResponseParser.ReadParallelArray(
                 root,
@@ -206,7 +208,8 @@ public sealed class StocksApi
                     row.Double("surpriseEPSpct"),
                     row.Timestamp("updated")),
                 "symbol", "fiscalYear", "fiscalQuarter", "date", "reportDate", "reportTime",
-                "currency", "reportedEPS", "estimatedEPS", "surpriseEPS", "surpriseEPSpct", "updated"));
+                "currency", "reportedEPS", "estimatedEPS", "surpriseEPS", "surpriseEPSpct", "updated"),
+            Array.Empty<StockEarning>());
         return JsonResponseParser.CreateResponse<StockEarningsResponse, IReadOnlyList<StockEarning>>(response, values);
     }
 
@@ -260,6 +263,7 @@ public sealed class StocksApi
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(request);
+        ValidateCandleWindow(request);
         var query = RequestQuery.Csv(options);
         AddDateWindow(query, request.Date, request.From, request.To, request.Countback);
         RequestQuery.Add(query, "exchange", request.Exchange);
@@ -308,6 +312,90 @@ public sealed class StocksApi
         var response = await _apiClient.GetAsync(path, true, query, cancellationToken)
             .ConfigureAwait(false);
         return JsonResponseParser.CreateCsvResponse(response);
+    }
+
+    private async Task<StockCandlesResponse> GetCandlesResponseAsync(
+        StockCandlesRequest request,
+        DateOnly? from,
+        DateOnly? to,
+        MarketDataRequestOptions? options,
+        CancellationToken cancellationToken)
+    {
+        var query = RequestQuery.From(options);
+        AddDateWindow(query, request.Date, from, to, request.Countback);
+        RequestQuery.Add(query, "exchange", request.Exchange);
+        AddBoolean(query, "extended", request.Extended);
+        RequestQuery.Add(query, "country", request.Country);
+        AddBoolean(query, "adjustsplits", request.AdjustSplits);
+        AddBoolean(query, "adjustdividends", request.AdjustDividends);
+        var path = $"stocks/candles/{Uri.EscapeDataString(request.Resolution.WireValue)}/{Uri.EscapeDataString(request.Symbol)}";
+        var response = await _apiClient.GetAsync(path, true, query, cancellationToken)
+            .ConfigureAwait(false);
+        var values = JsonResponseParser.DecodeOrDefault(
+            response,
+            root => JsonResponseParser.ReadParallelArray(
+                root,
+                row => new StockCandle(
+                    row.Timestamp("t"),
+                    row.Double("o"),
+                    row.Double("h"),
+                    row.Double("l"),
+                    row.Double("c"),
+                    row.Long("v")),
+                "t", "o", "h", "l", "c", "v"),
+            Array.Empty<StockCandle>());
+        return JsonResponseParser.CreateResponse<StockCandlesResponse, IReadOnlyList<StockCandle>>(response, values);
+    }
+
+    private sealed record CandleDateRange(DateOnly? From, DateOnly? To);
+
+    private static IReadOnlyList<CandleDateRange> CandleChunks(StockCandlesRequest request)
+    {
+        if (request.From is not { } from
+            || !request.Resolution.IsIntraday
+            || request.To is { } explicitTo && from.AddDays(365) >= explicitTo)
+        {
+            return [new CandleDateRange(request.From, request.To)];
+        }
+
+        var to = request.To ?? DateOnly.FromDateTime(DateTime.UtcNow);
+        if (from >= to)
+        {
+            return [new CandleDateRange(from, to)];
+        }
+
+        var ranges = new List<CandleDateRange>();
+        var current = from;
+        while (current < to)
+        {
+            var next = current.AddDays(365);
+            if (next > to) next = to;
+            ranges.Add(new CandleDateRange(current, next));
+            current = next;
+        }
+
+        return ranges;
+    }
+
+    private static void ValidateCandleWindow(StockCandlesRequest request)
+    {
+        if (request.Date.HasValue && (request.From.HasValue || request.To.HasValue || request.Countback.HasValue)
+            || request.Countback.HasValue && (request.From.HasValue || request.To.HasValue))
+        {
+            throw new ArgumentException(
+                "Date, From/To, and Countback are mutually exclusive candle window strategies.",
+                nameof(request));
+        }
+
+        if (request.Countback is <= 0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(request.Countback), "Countback must be positive.");
+        }
+
+        if (request.From is { } from && request.To is { } to && from > to)
+        {
+            throw new ArgumentException("From must be on or before To.", nameof(request));
+        }
     }
 
     private static IReadOnlyList<StockQuote> ParseQuotes(System.Text.Json.JsonElement root) =>

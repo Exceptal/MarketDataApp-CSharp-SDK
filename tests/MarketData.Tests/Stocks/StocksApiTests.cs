@@ -104,6 +104,88 @@ public sealed class StocksApiTests
     }
 
     [Fact]
+    public async Task GetCandlesAsync_ChunksLongIntradayRangesAndMergesResults()
+    {
+        var requests = new List<Uri>();
+        var handler = new StubHttpMessageHandler(request =>
+        {
+            lock (requests)
+            {
+                requests.Add(request.RequestUri!);
+            }
+
+            return MarketDataTestClient.JsonResponse("""
+            {
+              "s": "ok",
+              "t": [1706745600],
+              "o": [189.0],
+              "h": [191.0],
+              "l": [188.5],
+              "c": [190.25],
+              "v": [1000000]
+            }
+            """);
+        });
+        var client = MarketDataTestClient.Create(handler);
+
+        var response = await client.Stocks.GetCandlesAsync(
+            new StockCandlesRequest(StockResolution.Minutes(5), "AAPL")
+            {
+                From = new DateOnly(2020, 1, 1),
+                To = new DateOnly(2022, 1, 1)
+            });
+
+        Assert.Equal(3, requests.Count);
+        Assert.Equal(3, response.Values.Count);
+        Assert.Contains(requests, uri => uri.Query.Contains("from=2020-01-01"));
+        Assert.Contains(requests, uri => uri.Query.Contains("from=2020-12-31"));
+        Assert.Contains(requests, uri => uri.Query.Contains("from=2021-12-31"));
+    }
+
+    [Fact]
+    public async Task GetCandlesAsync_MapsNoDataToEmptyValues()
+    {
+        var handler = new StubHttpMessageHandler(_ => new HttpResponseMessage(System.Net.HttpStatusCode.NotFound));
+        var client = MarketDataTestClient.Create(handler);
+
+        var response = await client.Stocks.GetCandlesAsync(
+            new StockCandlesRequest(StockResolution.Daily, "UNKNOWN"));
+
+        Assert.True(response.IsNoData);
+        Assert.Empty(response.Values);
+    }
+
+    [Fact]
+    public async Task GetCandlesAsync_RejectsConflictingWindowParameters()
+    {
+        var handler = new StubHttpMessageHandler(_ => throw new InvalidOperationException("No request expected."));
+        var client = MarketDataTestClient.Create(handler);
+
+        await Assert.ThrowsAsync<ArgumentException>(() => client.Stocks.GetCandlesAsync(
+            new StockCandlesRequest(StockResolution.Daily, "AAPL")
+            {
+                Date = new DateOnly(2025, 1, 1),
+                Countback = 5
+            }));
+    }
+
+    [Fact]
+    public async Task TypedEndpoint_RejectsInvalidResponseStatus()
+    {
+        var handler = new StubHttpMessageHandler(_ => MarketDataTestClient.JsonResponse("""
+        {
+          "s": "error",
+          "symbol": ["AAPL"],
+          "last": [190.25]
+        }
+        """));
+        var client = MarketDataTestClient.Create(handler);
+
+        await Assert.ThrowsAsync<MarketData.Exceptions.ParseException>(
+            () => client.Stocks.GetQuoteAsync(new StockQuoteRequest("AAPL")));
+    }
+
+    [Fact]
     public async Task GetNewsAsync_ParsesArticlesAndScalarUpdated()
     {
         var handler = new StubHttpMessageHandler(_ => MarketDataTestClient.JsonResponse("""

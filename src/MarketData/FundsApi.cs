@@ -23,7 +23,7 @@ public sealed class FundsApi
 
         var response = await _apiClient.GetAsync(path, true, query, cancellationToken)
             .ConfigureAwait(false);
-        var values = JsonResponseParser.Decode(
+        var values = JsonResponseParser.DecodeOrDefault(
             response,
             root => JsonResponseParser.ReadParallelArray(
                 root,
@@ -33,7 +33,8 @@ public sealed class FundsApi
                     row.Double("h"),
                     row.Double("l"),
                     row.Double("c")),
-                "t", "o", "h", "l", "c"));
+                "t", "o", "h", "l", "c"),
+            Array.Empty<FundCandle>());
         return JsonResponseParser.CreateResponse<FundCandlesResponse, IReadOnlyList<FundCandle>>(response, values);
     }
 

@@ -26,12 +26,13 @@ public sealed class MarketsApi
 
         var response = await _apiClient.GetAsync("markets/status", true, query, cancellationToken)
             .ConfigureAwait(false);
-        var values = JsonResponseParser.Decode(
+        var values = JsonResponseParser.DecodeOrDefault(
             response,
             root => JsonResponseParser.ReadParallelArray(
                 root,
                 row => new MarketStatus(row.Timestamp("date"), row.String("status")),
-                "date", "status"));
+                "date", "status"),
+            Array.Empty<MarketStatus>());
         return JsonResponseParser.CreateResponse<MarketStatusResponse, IReadOnlyList<MarketStatus>>(response, values);
     }
 

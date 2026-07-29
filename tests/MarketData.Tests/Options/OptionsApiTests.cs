@@ -29,7 +29,7 @@ public sealed class OptionsApiTests
         var handler = new StubHttpMessageHandler(_ => MarketDataTestClient.JsonResponse("""
         {
           "s": "ok",
-          "expiration": [1737072000],
+          "expirations": [1737072000],
           "updated": 1736985600
         }
         """));

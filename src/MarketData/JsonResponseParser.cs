@@ -107,9 +107,31 @@ internal static class JsonResponseParser
 
     public static T Decode<T>(InternalApiResponse response, Func<JsonElement, T> decoder)
     {
+        return Decode(response, decoder, default!, useDefaultForNoData: false);
+    }
+
+    public static T DecodeOrDefault<T>(
+        InternalApiResponse response,
+        Func<JsonElement, T> decoder,
+        T noDataValue) =>
+        Decode(response, decoder, noDataValue, useDefaultForNoData: true);
+
+    private static T Decode<T>(
+        InternalApiResponse response,
+        Func<JsonElement, T> decoder,
+        T noDataValue,
+        bool useDefaultForNoData)
+    {
+        if (useDefaultForNoData && response.StatusCode == 404)
+        {
+            return noDataValue;
+        }
+
         try
         {
-            return decoder(Parse(response));
+            var root = Parse(response);
+            ValidateStatus(root);
+            return decoder(root);
         }
         catch (Exception exception) when (IsParseFailure(exception))
         {
@@ -127,6 +149,20 @@ internal static class JsonResponseParser
         or FormatException
         or OverflowException
         or ArgumentOutOfRangeException;
+
+    private static void ValidateStatus(JsonElement root)
+    {
+        if (!root.TryGetProperty("s", out var status))
+        {
+            return;
+        }
+
+        if (status.ValueKind != JsonValueKind.String
+            || status.GetString() is not ("ok" or "no_data"))
+        {
+            throw new JsonException("Invalid response status.");
+        }
+    }
 
     public static TResponse CreateResponse<TResponse, T>(
         InternalApiResponse response,

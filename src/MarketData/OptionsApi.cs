@@ -23,12 +23,13 @@ public sealed class OptionsApi
             true,
             RequestQuery.From(options),
             cancellationToken).ConfigureAwait(false);
-        var value = JsonResponseParser.Decode(
+        var value = JsonResponseParser.DecodeOrDefault(
             response,
             root => root.TryGetProperty("optionSymbol", out var symbol)
                 && symbol.ValueKind == JsonValueKind.String
                 ? symbol.GetString() ?? throw new JsonException("Missing optionSymbol.")
-                : throw new JsonException("Missing optionSymbol."));
+                : throw new JsonException("Missing optionSymbol."),
+            string.Empty);
         return JsonResponseParser.CreateResponse<OptionsLookupResponse, string>(response, value);
     }
 
@@ -47,17 +48,18 @@ public sealed class OptionsApi
             true,
             query,
             cancellationToken).ConfigureAwait(false);
-        var result = JsonResponseParser.Decode(
+        var result = JsonResponseParser.DecodeOrDefault(
             response,
             root =>
             {
                 var expirations = JsonResponseParser.ReadParallelArray(
                     root,
-                    row => row.Timestamp("expiration")
-                        ?? throw new JsonException("Missing expiration."),
-                    "expiration");
+                    row => row.Timestamp("expirations")
+                        ?? throw new JsonException("Missing expirations."),
+                    "expirations");
                 return (Values: expirations, Updated: JsonResponseParser.Timestamp(root, "updated"));
-            });
+            },
+            (Values: (IReadOnlyList<DateTimeOffset>)Array.Empty<DateTimeOffset>(), Updated: (DateTimeOffset?)null));
         return JsonResponseParser.CreateResponse<OptionsExpirationsResponse, IReadOnlyList<DateTimeOffset>>(
             response,
             result.Values,
@@ -146,7 +148,8 @@ public sealed class OptionsApi
             true,
             query,
             cancellationToken).ConfigureAwait(false);
-        var values = JsonResponseParser.Decode(response, ParseOptionQuotes);
+        var values = JsonResponseParser.DecodeOrDefault(
+            response, ParseOptionQuotes, Array.Empty<OptionQuote>());
         return JsonResponseParser.CreateResponse<OptionsChainResponse, IReadOnlyList<OptionQuote>>(response, values);
     }
 
@@ -272,7 +275,8 @@ public sealed class OptionsApi
             true,
             query,
             cancellationToken).ConfigureAwait(false);
-        var values = JsonResponseParser.Decode(response, ParseOptionQuotes);
+        var values = JsonResponseParser.DecodeOrDefault(
+            response, ParseOptionQuotes, Array.Empty<OptionQuote>());
         return JsonResponseParser.CreateResponse<OptionsQuotesResponse, IReadOnlyList<OptionQuote>>(response, values);
     }
 
