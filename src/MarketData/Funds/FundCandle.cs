@@ -1,0 +1,18 @@
+namespace MarketData.Funds;
+
+/// <summary>
+/// A single OHLC candle for a mutual fund or ETF. Volume is absent — funds report NAV
+/// rather than traded volume.
+/// All fields are nullable because the <c>columns</c> parameter can project any field away.
+/// </summary>
+/// <param name="Time">Candle date (wire field: <c>t</c>).</param>
+/// <param name="Open">Opening NAV (wire field: <c>o</c>).</param>
+/// <param name="High">High NAV (wire field: <c>h</c>).</param>
+/// <param name="Low">Low NAV (wire field: <c>l</c>).</param>
+/// <param name="Close">Closing NAV (wire field: <c>c</c>).</param>
+public record FundCandle(
+    DateTimeOffset? Time,
+    double? Open,
+    double? High,
+    double? Low,
+    double? Close);
