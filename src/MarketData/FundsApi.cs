@@ -16,8 +16,10 @@ public sealed class FundsApi
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(request);
+        RequestValidator.ValidateDateWindow(
+            request.Date, request.From, request.To, request.Countback, nameof(request));
         var query = RequestQuery.From(options);
-        AddDateWindow(query, request.Date, request.From, request.To, request.Countback);
+        RequestQuery.AddDateWindow(query, request.Date, request.From, request.To, request.Countback);
         var path =
             $"funds/candles/{Uri.EscapeDataString(request.Resolution.WireValue)}/{Uri.EscapeDataString(request.Symbol)}";
 
@@ -34,7 +36,8 @@ public sealed class FundsApi
                     row.Double("l"),
                     row.Double("c")),
                 "t", "o", "h", "l", "c"),
-            Array.Empty<FundCandle>());
+            Array.Empty<FundCandle>(),
+            requestedColumns: options?.Columns);
         return JsonResponseParser.CreateResponse<FundCandlesResponse, IReadOnlyList<FundCandle>>(response, values);
     }
 
@@ -45,8 +48,10 @@ public sealed class FundsApi
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(request);
+        RequestValidator.ValidateDateWindow(
+            request.Date, request.From, request.To, request.Countback, nameof(request));
         var query = RequestQuery.Csv(options);
-        AddDateWindow(query, request.Date, request.From, request.To, request.Countback);
+        RequestQuery.AddDateWindow(query, request.Date, request.From, request.To, request.Countback);
         var path =
             $"funds/candles/{Uri.EscapeDataString(request.Resolution.WireValue)}/{Uri.EscapeDataString(request.Symbol)}";
         var response = await _apiClient.GetAsync(path, true, query, cancellationToken)
@@ -54,16 +59,4 @@ public sealed class FundsApi
         return JsonResponseParser.CreateCsvResponse(response);
     }
 
-    private static void AddDateWindow(
-        ICollection<KeyValuePair<string, string?>> query,
-        DateOnly? date,
-        DateOnly? from,
-        DateOnly? to,
-        int? countback)
-    {
-        RequestQuery.Add(query, "date", date is { } dateValue ? RequestQuery.Date(dateValue) : null);
-        RequestQuery.Add(query, "from", from is { } fromValue ? RequestQuery.Date(fromValue) : null);
-        RequestQuery.Add(query, "to", to is { } toValue ? RequestQuery.Date(toValue) : null);
-        RequestQuery.Add(query, "countback", countback?.ToString());
-    }
 }

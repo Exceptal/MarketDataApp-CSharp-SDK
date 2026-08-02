@@ -24,7 +24,6 @@ public sealed class FundsApiTests
         var response = await client.Funds.GetCandlesAsync(
             new FundCandlesRequest(FundResolution.Daily, "VTI")
             {
-                From = new DateOnly(2024, 2, 1),
                 To = new DateOnly(2024, 2, 2),
                 Countback = 5
             },
@@ -40,7 +39,6 @@ public sealed class FundsApiTests
         Assert.Equal(101.0, response.Values[0].Close);
         Assert.Equal("Bearer", handler.LastRequest!.Headers.Authorization!.Scheme);
         Assert.Equal("/v1/funds/candles/D/VTI/", handler.LastRequest.RequestUri!.AbsolutePath);
-        Assert.Contains("from=2024-02-01", handler.LastRequest.RequestUri.Query);
         Assert.Contains("to=2024-02-02", handler.LastRequest.RequestUri.Query);
         Assert.Contains("countback=5", handler.LastRequest.RequestUri.Query);
         Assert.Contains("dateformat=timestamp", handler.LastRequest.RequestUri.Query);

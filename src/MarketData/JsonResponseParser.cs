@@ -28,12 +28,28 @@ internal static class JsonResponseParser
         Func<ParallelArrayRow, T> factory,
         params string[] fields)
     {
-        var count = fields
-            .Select(field => root.TryGetProperty(field, out var value) && value.ValueKind == JsonValueKind.Array
-                ? value.GetArrayLength()
-                : 0)
-            .DefaultIfEmpty()
-            .Max();
+        var lengths = new List<int>(fields.Length);
+        foreach (var field in fields)
+        {
+            if (!root.TryGetProperty(field, out var value))
+            {
+                continue;
+            }
+
+            if (value.ValueKind != JsonValueKind.Array)
+            {
+                throw new JsonException($"Response field '{field}' must be an array.");
+            }
+
+            lengths.Add(value.GetArrayLength());
+        }
+
+        if (lengths.Distinct().Skip(1).Any())
+        {
+            throw new JsonException("Parallel response arrays have different lengths.");
+        }
+
+        var count = lengths.Count == 0 ? 0 : lengths[0];
 
         var rows = new List<T>(count);
         for (var index = 0; index < count; index++)
@@ -105,22 +121,42 @@ internal static class JsonResponseParser
     public static DateTimeOffset? Timestamp(JsonElement root, string name) =>
         root.TryGetProperty(name, out var value) ? ToDateTime(value) : null;
 
-    public static T Decode<T>(InternalApiResponse response, Func<JsonElement, T> decoder)
+    public static T Decode<T>(
+        InternalApiResponse response,
+        Func<JsonElement, T> decoder,
+        bool requireStatus = true,
+        IReadOnlyList<string>? requestedColumns = null)
     {
-        return Decode(response, decoder, default!, useDefaultForNoData: false);
+        return Decode(
+            response,
+            decoder,
+            default!,
+            useDefaultForNoData: false,
+            requireStatus,
+            requestedColumns);
     }
 
     public static T DecodeOrDefault<T>(
         InternalApiResponse response,
         Func<JsonElement, T> decoder,
-        T noDataValue) =>
-        Decode(response, decoder, noDataValue, useDefaultForNoData: true);
+        T noDataValue,
+        bool requireStatus = true,
+        IReadOnlyList<string>? requestedColumns = null) =>
+        Decode(
+            response,
+            decoder,
+            noDataValue,
+            useDefaultForNoData: true,
+            requireStatus,
+            requestedColumns);
 
     private static T Decode<T>(
         InternalApiResponse response,
         Func<JsonElement, T> decoder,
         T noDataValue,
-        bool useDefaultForNoData)
+        bool useDefaultForNoData,
+        bool requireStatus,
+        IReadOnlyList<string>? requestedColumns)
     {
         if (useDefaultForNoData && response.StatusCode == 404)
         {
@@ -130,7 +166,13 @@ internal static class JsonResponseParser
         try
         {
             var root = Parse(response);
-            ValidateStatus(root);
+            var status = ValidateStatus(root, requireStatus);
+            if (useDefaultForNoData && status == "no_data")
+            {
+                return noDataValue;
+            }
+
+            ValidateRequestedColumns(root, requestedColumns);
             return decoder(root);
         }
         catch (Exception exception) when (IsParseFailure(exception))
@@ -150,17 +192,43 @@ internal static class JsonResponseParser
         or OverflowException
         or ArgumentOutOfRangeException;
 
-    private static void ValidateStatus(JsonElement root)
+    private static string? ValidateStatus(JsonElement root, bool requireStatus)
     {
         if (!root.TryGetProperty("s", out var status))
         {
-            return;
+            if (requireStatus)
+            {
+                throw new JsonException("Missing response status field 's'.");
+            }
+
+            return null;
         }
 
         if (status.ValueKind != JsonValueKind.String
             || status.GetString() is not ("ok" or "no_data"))
         {
-            throw new JsonException("Invalid response status.");
+            throw new JsonException(
+                $"Unexpected response status '{(status.ValueKind == JsonValueKind.String ? status.GetString() : status.ValueKind.ToString())}'.");
+        }
+
+        return status.GetString();
+    }
+
+    private static void ValidateRequestedColumns(
+        JsonElement root,
+        IReadOnlyList<string>? requestedColumns)
+    {
+        if (requestedColumns is null)
+        {
+            return;
+        }
+
+        foreach (var column in requestedColumns)
+        {
+            if (!root.TryGetProperty(column, out _))
+            {
+                throw new JsonException($"Requested response column '{column}' is missing.");
+            }
         }
     }
 
@@ -177,11 +245,62 @@ internal static class JsonResponseParser
             RequestUrl = response.RequestUrl,
             RequestId = response.RequestId,
             RateLimit = response.RateLimit,
-            RawBodyBytes = response.Body
+            RawBodyBytes = response.Body,
+            IsNoData = IsNoData(response),
+            Parts =
+            [
+                new MarketDataResponsePart
+                {
+                    StatusCode = response.StatusCode,
+                    RequestUrl = response.RequestUrl,
+                    RequestId = response.RequestId,
+                    RateLimit = response.RateLimit,
+                    RawBody = Encoding.UTF8.GetString(response.Body)
+                }
+            ]
         };
         return customize is null ? result : customize(result);
     }
 
     public static CsvResponse CreateCsvResponse(InternalApiResponse response) =>
         CreateResponse<CsvResponse, string>(response, Encoding.UTF8.GetString(response.Body));
+
+    public static TResponse CreateCompositeResponse<TResponse, T>(
+        T values,
+        Uri logicalRequestUrl,
+        int statusCode,
+        byte[] body,
+        IReadOnlyList<MarketDataResponsePart> parts)
+        where TResponse : MarketDataResponse<T>, new() =>
+        new()
+        {
+            Values = values,
+            StatusCode = statusCode,
+            RequestUrl = logicalRequestUrl,
+            RequestId = null,
+            RateLimit = null,
+            RawBodyBytes = body,
+            IsNoData = statusCode == 404,
+            Parts = parts
+        };
+
+    private static bool IsNoData(InternalApiResponse response)
+    {
+        if (response.StatusCode == 404)
+        {
+            return true;
+        }
+
+        try
+        {
+            using var document = JsonDocument.Parse(response.Body);
+            return document.RootElement.TryGetProperty("s", out var status)
+                && status.ValueKind == JsonValueKind.String
+                && status.GetString() == "no_data";
+        }
+        catch (JsonException)
+        {
+            return false;
+        }
+    }
 }

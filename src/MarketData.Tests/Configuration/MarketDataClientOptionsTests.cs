@@ -1,0 +1,71 @@
+using MarketData.Tests.TestSupport;
+using Microsoft.Extensions.Configuration;
+
+namespace MarketData.Tests.Configuration;
+
+public sealed class MarketDataClientOptionsTests
+{
+    [Fact]
+    public void FromConfiguration_BindsTransportSettings()
+    {
+        var configuration = Configuration(new Dictionary<string, string?>
+        {
+            ["MarketData:ApiToken"] = "token",
+            ["MarketData:BaseAddress"] = "https://example.test/api/",
+            ["MarketData:ApiVersion"] = "v2",
+            ["MarketData:Timeout"] = "00:00:05",
+            ["MarketData:MaxRetries"] = "4",
+            ["MarketData:RetryBaseDelay"] = "00:00:00.100",
+            ["MarketData:RetryMaxDelay"] = "00:00:10",
+            ["MarketData:MaxRetryAfter"] = "00:02:00",
+            ["MarketData:RetryJitterFactor"] = "0.1",
+            ["MarketData:MaxConcurrentRequests"] = "12",
+            ["MarketData:UserAgent"] = "test-client/1.0"
+        });
+
+        var options = MarketDataClientOptions.FromConfiguration(configuration);
+
+        Assert.Equal("token", options.ApiToken);
+        Assert.Equal(new Uri("https://example.test/api/"), options.BaseAddress);
+        Assert.Equal("v2", options.ApiVersion);
+        Assert.Equal(TimeSpan.FromSeconds(5), options.Timeout);
+        Assert.Equal(4, options.MaxRetries);
+        Assert.Equal(TimeSpan.FromMilliseconds(100), options.RetryBaseDelay);
+        Assert.Equal(TimeSpan.FromSeconds(10), options.RetryMaxDelay);
+        Assert.Equal(TimeSpan.FromMinutes(2), options.MaxRetryAfter);
+        Assert.Equal(0.1, options.RetryJitterFactor);
+        Assert.Equal(12, options.MaxConcurrentRequests);
+        Assert.Equal("test-client/1.0", options.UserAgent);
+    }
+
+    [Fact]
+    public void FromConfiguration_RejectsMalformedValues()
+    {
+        var configuration = Configuration(new Dictionary<string, string?>
+        {
+            ["MarketData:MaxRetries"] = "many"
+        });
+
+        var exception = Assert.Throws<FormatException>(
+            () => MarketDataClientOptions.FromConfiguration(configuration));
+
+        Assert.Contains("MarketData:MaxRetries", exception.Message);
+    }
+
+    [Fact]
+    public void Client_RejectsInvalidConfiguredRanges()
+    {
+        var options = MarketDataClientOptions.FromConfiguration(Configuration(
+            new Dictionary<string, string?>
+            {
+                ["MarketData:RetryBaseDelay"] = "00:00:10",
+                ["MarketData:RetryMaxDelay"] = "00:00:01"
+            }));
+        using var handler = new StubHttpMessageHandler(_ => throw new InvalidOperationException());
+
+        Assert.Throws<ArgumentException>(() => MarketDataTestClient.Create(handler, options));
+    }
+
+    private static IConfiguration Configuration(IDictionary<string, string?> values) =>
+        new ConfigurationBuilder().AddInMemoryCollection(values).Build();
+}

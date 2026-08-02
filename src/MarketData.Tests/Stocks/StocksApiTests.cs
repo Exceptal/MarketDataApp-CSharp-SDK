@@ -137,6 +137,11 @@ public sealed class StocksApiTests
 
         Assert.Equal(3, requests.Count);
         Assert.Equal(3, response.Values.Count);
+        Assert.True(response.IsComposite);
+        Assert.Equal(3, response.Parts.Count);
+        Assert.Null(response.RequestId);
+        Assert.Null(response.RateLimit);
+        Assert.Equal(string.Empty, response.RawBody);
         Assert.Contains(requests, uri => uri.Query.Contains("from=2020-01-01"));
         Assert.Contains(requests, uri => uri.Query.Contains("from=2020-12-31"));
         Assert.Contains(requests, uri => uri.Query.Contains("from=2021-12-31"));
@@ -152,6 +157,26 @@ public sealed class StocksApiTests
             new StockCandlesRequest(StockResolution.Daily, "UNKNOWN"));
 
         Assert.True(response.IsNoData);
+        Assert.Empty(response.Values);
+    }
+
+    [Fact]
+    public async Task GetCandlesAsync_AllNoDataChunksPreserveCompositeNoDataState()
+    {
+        var handler = new StubHttpMessageHandler(_ =>
+            MarketDataTestClient.JsonResponse("""{"s":"no_data"}"""));
+        var client = MarketDataTestClient.Create(handler);
+
+        var response = await client.Stocks.GetCandlesAsync(
+            new StockCandlesRequest(StockResolution.Minutes(5), "UNKNOWN")
+            {
+                From = new DateOnly(2020, 1, 1),
+                To = new DateOnly(2022, 1, 1)
+            });
+
+        Assert.True(response.IsComposite);
+        Assert.True(response.IsNoData);
+        Assert.Equal(3, response.Parts.Count);
         Assert.Empty(response.Values);
     }
 
@@ -235,5 +260,46 @@ public sealed class StocksApiTests
         Assert.Equal(2024, response.Values[0].FiscalYear);
         Assert.Equal(1.64, response.Values[0].ReportedEps);
         Assert.Contains("report=2024-Q4", handler.LastRequest!.RequestUri!.Query);
+    }
+
+    [Fact]
+    public async Task GetPriceAsync_UsesSingleSymbolPath()
+    {
+        var handler = new StubHttpMessageHandler(_ => MarketDataTestClient.JsonResponse("""
+        {
+          "s": "ok",
+          "symbol": ["AAPL"],
+          "mid": [190.25],
+          "updated": [1706745600]
+        }
+        """));
+        var client = MarketDataTestClient.Create(handler);
+
+        var response = await client.Stocks.GetPriceAsync(new StockPriceRequest("AAPL"));
+
+        Assert.Equal(190.25, response.Values[0].Mid);
+        Assert.Equal("/v1/stocks/prices/AAPL/", handler.LastRequest!.RequestUri!.AbsolutePath);
+    }
+
+    [Fact]
+    public async Task GetBulkQuotesAsync_MapsSymbolsAndExtended()
+    {
+        var handler = new StubHttpMessageHandler(_ => MarketDataTestClient.JsonResponse("""
+        {
+          "s": "ok",
+          "symbol": ["AAPL", "MSFT"],
+          "mid": [190.25, 420.5],
+          "updated": [1706745600, 1706745600]
+        }
+        """));
+        var client = MarketDataTestClient.Create(handler);
+
+        var response = await client.Stocks.GetBulkQuotesAsync(
+            new StockBulkQuotesRequest("AAPL", "MSFT") { Extended = true });
+
+        Assert.Equal(2, response.Values.Count);
+        Assert.Equal("/v1/stocks/bulkquotes/", handler.LastRequest!.RequestUri!.AbsolutePath);
+        Assert.Contains("symbols=AAPL%2CMSFT", handler.LastRequest.RequestUri.Query);
+        Assert.Contains("extended=true", handler.LastRequest.RequestUri.Query);
     }
 }

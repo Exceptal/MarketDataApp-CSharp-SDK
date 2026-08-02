@@ -1,4 +1,5 @@
 using System.Globalization;
+using System.Diagnostics;
 using System.Net;
 using System.Net.Http.Headers;
 using System.Text;
@@ -10,6 +11,7 @@ internal sealed class ApiClient
 {
     private readonly HttpClient _httpClient;
     private readonly MarketDataClientOptions _options;
+    private readonly SemaphoreSlim _concurrencyGate;
     private RateLimitSnapshot? _latestRateLimit;
 
     public ApiClient(HttpClient httpClient, MarketDataClientOptions options)
@@ -36,9 +38,45 @@ internal sealed class ApiClient
         {
             throw new ArgumentOutOfRangeException(nameof(options), "RetryMaxDelay cannot be negative.");
         }
+        if (_options.RetryBaseDelay > _options.RetryMaxDelay)
+        {
+            throw new ArgumentException("RetryBaseDelay cannot exceed RetryMaxDelay.", nameof(options));
+        }
+        if (_options.MaxRetryAfter <= TimeSpan.Zero)
+        {
+            throw new ArgumentOutOfRangeException(nameof(options), "MaxRetryAfter must be positive.");
+        }
+        if (_options.RetryJitterFactor is < 0 or > 1)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(options),
+                "RetryJitterFactor must be between 0 and 1.");
+        }
+        if (_options.MaxConcurrentRequests <= 0)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(options),
+                "MaxConcurrentRequests must be positive.");
+        }
+        if (_options.TimeProvider is null)
+        {
+            throw new ArgumentException("TimeProvider is required.", nameof(options));
+        }
+
+        ValidateBaseAddress(_options.BaseAddress, nameof(options));
+        ValidateApiVersion(_options.ApiVersion, nameof(options));
+        ValidateApiToken(_options.ApiToken, nameof(options));
+        ValidateUserAgent(_options.UserAgent, nameof(options));
+        _concurrencyGate = new SemaphoreSlim(_options.MaxConcurrentRequests, _options.MaxConcurrentRequests);
     }
 
     public RateLimitSnapshot? LatestRateLimit => Volatile.Read(ref _latestRateLimit);
+
+    internal Uri CreateRequestUri(
+        string path,
+        bool versioned,
+        IEnumerable<KeyValuePair<string, string?>> query) =>
+        BuildUri(path, versioned, query);
 
     public async Task<InternalApiResponse> GetAsync(
         string path,
@@ -47,6 +85,7 @@ internal sealed class ApiClient
         CancellationToken cancellationToken)
     {
         var requestUri = BuildUri(path, versioned, query);
+        ThrowIfRateLimited(requestUri);
         var retryCount = 0;
         while (true)
         {
@@ -59,23 +98,52 @@ internal sealed class ApiClient
             {
                 var delay = RetryDelay(exception, retryCount);
                 retryCount++;
-                await Task.Delay(delay, cancellationToken).ConfigureAwait(false);
+                using var activity = MarketDataDiagnostics.ActivitySource.StartActivity(
+                    "marketdata.retry",
+                    ActivityKind.Internal);
+                activity?.SetTag("marketdata.retry.count", retryCount);
+                activity?.SetTag("marketdata.retry.delay_ms", delay.TotalMilliseconds);
+                activity?.SetTag("error.type", exception.GetType().Name);
+                await Task.Delay(delay, _options.TimeProvider, cancellationToken).ConfigureAwait(false);
             }
         }
     }
 
     private async Task<InternalApiResponse> SendOnceAsync(Uri requestUri, CancellationToken cancellationToken)
     {
+        await _concurrencyGate.WaitAsync(cancellationToken).ConfigureAwait(false);
+        try
+        {
+            return await SendOnceWithinGateAsync(requestUri, cancellationToken).ConfigureAwait(false);
+        }
+        finally
+        {
+            _concurrencyGate.Release();
+        }
+    }
+
+    private async Task<InternalApiResponse> SendOnceWithinGateAsync(
+        Uri requestUri,
+        CancellationToken cancellationToken)
+    {
         using var request = new HttpRequestMessage(HttpMethod.Get, requestUri);
-        using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-        timeoutCts.CancelAfter(_options.Timeout);
-        var requestCancellationToken = timeoutCts.Token;
+        using var timeoutCts = new CancellationTokenSource(_options.Timeout, _options.TimeProvider);
+        using var requestCts = CancellationTokenSource.CreateLinkedTokenSource(
+            cancellationToken,
+            timeoutCts.Token);
+        var requestCancellationToken = requestCts.Token;
         if (!string.IsNullOrWhiteSpace(_options.ApiToken))
         {
             request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", _options.ApiToken);
         }
 
         request.Headers.UserAgent.ParseAdd(_options.UserAgent);
+
+        using var activity = MarketDataDiagnostics.ActivitySource.StartActivity(
+            "marketdata.http.get",
+            ActivityKind.Client);
+        activity?.SetTag("http.request.method", "GET");
+        activity?.SetTag("url.full", SafeUri(requestUri).AbsoluteUri);
 
         try
         {
@@ -97,6 +165,8 @@ internal sealed class ApiClient
             }
 
             var result = new InternalApiResponse(body, requestUri, (int)response.StatusCode, requestId, rateLimit);
+            activity?.SetTag("http.response.status_code", (int)response.StatusCode);
+            activity?.SetTag("marketdata.request_id", requestId);
             if ((int)response.StatusCode is >= 200 and < 300 or 404)
             {
                 return result;
@@ -104,18 +174,23 @@ internal sealed class ApiClient
 
             throw CreateException(response.StatusCode, requestUri, requestId, response.Headers, body);
         }
-        catch (OperationCanceledException exception) when (!cancellationToken.IsCancellationRequested)
+        catch (OperationCanceledException exception) when (
+            !cancellationToken.IsCancellationRequested && timeoutCts.IsCancellationRequested)
         {
+            activity?.SetStatus(ActivityStatusCode.Error, "timeout");
+            activity?.AddException(exception);
             throw new NetworkException(
                 "The Market Data API request timed out.",
-                ErrorContext.ForNoResponse(requestUri, DateTimeOffset.UtcNow),
+                ErrorContext.ForNoResponse(requestUri, _options.TimeProvider.GetUtcNow()),
                 exception);
         }
         catch (HttpRequestException exception)
         {
+            activity?.SetStatus(ActivityStatusCode.Error, exception.Message);
+            activity?.AddException(exception);
             throw new NetworkException(
                 "The Market Data API request could not be sent.",
-                ErrorContext.ForNoResponse(requestUri, DateTimeOffset.UtcNow),
+                ErrorContext.ForNoResponse(requestUri, _options.TimeProvider.GetUtcNow()),
                 exception);
         }
     }
@@ -134,7 +209,9 @@ internal sealed class ApiClient
         };
         if (retryAfter is { } serverDelay)
         {
-            return serverDelay < TimeSpan.Zero ? TimeSpan.Zero : serverDelay;
+            return serverDelay <= TimeSpan.Zero
+                ? TimeSpan.Zero
+                : TimeSpan.FromTicks(Math.Min(serverDelay.Ticks, _options.MaxRetryAfter.Ticks));
         }
 
         var multiplier = 1L << Math.Min(retryCount, 30);
@@ -143,7 +220,16 @@ internal sealed class ApiClient
             _options.RetryBaseDelay.Ticks > long.MaxValue / multiplier
                 ? long.MaxValue
                 : _options.RetryBaseDelay.Ticks * multiplier);
-        return TimeSpan.FromTicks(ticks);
+        if (ticks == 0 || _options.RetryJitterFactor == 0)
+        {
+            return TimeSpan.FromTicks(ticks);
+        }
+
+        var jitter = 1 - _options.RetryJitterFactor
+            + (Random.Shared.NextDouble() * 2 * _options.RetryJitterFactor);
+        return TimeSpan.FromTicks(Math.Min(
+            _options.RetryMaxDelay.Ticks,
+            checked((long)(ticks * jitter))));
     }
 
     private Uri BuildUri(
@@ -163,14 +249,18 @@ internal sealed class ApiClient
         return builder.Uri;
     }
 
-    private static MarketDataException CreateException(
+    private MarketDataException CreateException(
         HttpStatusCode statusCode,
         Uri requestUri,
         string? requestId,
         HttpResponseHeaders headers,
         byte[] body)
     {
-        var context = ErrorContext.ForResponse(requestId, requestUri, (int)statusCode, DateTimeOffset.UtcNow);
+        var context = ErrorContext.ForResponse(
+            requestId,
+            requestUri,
+            (int)statusCode,
+            _options.TimeProvider.GetUtcNow());
         var detail = Encoding.UTF8.GetString(body);
         var message = string.IsNullOrWhiteSpace(detail)
             ? $"The Market Data API returned HTTP {(int)statusCode}."
@@ -186,7 +276,7 @@ internal sealed class ApiClient
         };
     }
 
-    private static TimeSpan? ParseRetryAfter(HttpResponseHeaders headers)
+    private TimeSpan? ParseRetryAfter(HttpResponseHeaders headers)
     {
         if (headers.RetryAfter?.Delta is { } delta)
         {
@@ -195,7 +285,7 @@ internal sealed class ApiClient
 
         if (headers.RetryAfter?.Date is { } date)
         {
-            return date - DateTimeOffset.UtcNow;
+            return date - _options.TimeProvider.GetUtcNow();
         }
 
         return null;
@@ -228,6 +318,83 @@ internal sealed class ApiClient
 
     private static string? GetHeader(HttpHeaders headers, string name) =>
         headers.TryGetValues(name, out var values) ? values.FirstOrDefault() : null;
+
+    private void ThrowIfRateLimited(Uri requestUri)
+    {
+        var snapshot = LatestRateLimit;
+        if (snapshot is null
+            || snapshot.Limit == 0
+            || snapshot.Remaining > 0
+            || snapshot.Reset <= _options.TimeProvider.GetUtcNow())
+        {
+            return;
+        }
+
+        var retryAfter = snapshot.Reset - _options.TimeProvider.GetUtcNow();
+        throw new RateLimitException(
+            "The request was not sent because the latest rate-limit snapshot is exhausted.",
+            ErrorContext.ForNoResponse(requestUri, _options.TimeProvider.GetUtcNow()),
+            retryAfter);
+    }
+
+    private static void ValidateBaseAddress(Uri baseAddress, string parameterName)
+    {
+        if (!baseAddress.IsAbsoluteUri
+            || baseAddress.Scheme is not ("http" or "https")
+            || string.IsNullOrWhiteSpace(baseAddress.Host)
+            || !string.IsNullOrEmpty(baseAddress.Query)
+            || !string.IsNullOrEmpty(baseAddress.Fragment)
+            || !string.IsNullOrEmpty(baseAddress.UserInfo))
+        {
+            throw new ArgumentException(
+                "BaseAddress must be an absolute HTTP(S) URI with no query, fragment, or user information.",
+                parameterName);
+        }
+    }
+
+    private static void ValidateApiVersion(string apiVersion, string parameterName)
+    {
+        if (string.IsNullOrWhiteSpace(apiVersion)
+            || apiVersion.Any(character =>
+                !char.IsAsciiLetterOrDigit(character) && character is not ('.' or '_' or '-')))
+        {
+            throw new ArgumentException(
+                "ApiVersion may contain only ASCII letters, digits, periods, underscores, and hyphens.",
+                parameterName);
+        }
+    }
+
+    private static void ValidateApiToken(string? apiToken, string parameterName)
+    {
+        if (apiToken is not null
+            && apiToken.Any(character => character is < ' ' or > '~'))
+        {
+            throw new ArgumentException(
+                "ApiToken may contain only printable ASCII characters.",
+                parameterName);
+        }
+    }
+
+    private static void ValidateUserAgent(string userAgent, string parameterName)
+    {
+        if (string.IsNullOrWhiteSpace(userAgent))
+        {
+            throw new ArgumentException("UserAgent cannot be blank.", parameterName);
+        }
+
+        using var request = new HttpRequestMessage();
+        try
+        {
+            request.Headers.UserAgent.ParseAdd(userAgent);
+        }
+        catch (FormatException exception)
+        {
+            throw new ArgumentException("UserAgent is not a valid HTTP user-agent value.", parameterName, exception);
+        }
+    }
+
+    private static Uri SafeUri(Uri requestUri) =>
+        new UriBuilder(requestUri) { Query = string.Empty, Fragment = string.Empty }.Uri;
 
     private sealed class MarketDataExceptionAdapter(string message, ErrorContext context)
         : MarketDataException(message, context);

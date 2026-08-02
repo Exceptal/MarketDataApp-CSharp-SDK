@@ -30,7 +30,8 @@ public sealed class UtilitiesApi
                     row.Double("uptimePct90d") ?? throw new JsonException("Missing uptimePct90d."),
                     row.Timestamp("updated") ?? throw new JsonException("Missing updated.")),
                 "service", "status", "online", "uptimePct30d", "uptimePct90d", "updated"),
-            Array.Empty<ServiceStatus>());
+            Array.Empty<ServiceStatus>(),
+            requireStatus: true);
         return JsonResponseParser.CreateResponse<UtilitiesStatusResponse, IReadOnlyList<ServiceStatus>>(response, values);
     }
 
@@ -48,7 +49,8 @@ public sealed class UtilitiesApi
                 property => property.Name,
                 property => property.Value.GetString() ?? string.Empty,
                 StringComparer.OrdinalIgnoreCase),
-            new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase));
+            new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase),
+            requireStatus: false);
         return JsonResponseParser.CreateResponse<UtilitiesHeadersResponse, IReadOnlyDictionary<string, string>>(response, values);
     }
 
@@ -65,7 +67,8 @@ public sealed class UtilitiesApi
             root => new User(
                 RequiredInt(root, "x-ratelimit-requests-remaining"),
                 RequiredInt(root, "x-ratelimit-requests-limit"),
-                RequiredString(root, "x-options-data-permissions")));
+                RequiredString(root, "x-options-data-permissions")),
+            requireStatus: false);
         return JsonResponseParser.CreateResponse<UtilitiesUserResponse, User>(response, user);
     }
 

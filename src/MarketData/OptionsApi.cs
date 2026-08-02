@@ -29,7 +29,8 @@ public sealed class OptionsApi
                 && symbol.ValueKind == JsonValueKind.String
                 ? symbol.GetString() ?? throw new JsonException("Missing optionSymbol.")
                 : throw new JsonException("Missing optionSymbol."),
-            string.Empty);
+            string.Empty,
+            requestedColumns: options?.Columns);
         return JsonResponseParser.CreateResponse<OptionsLookupResponse, string>(response, value);
     }
 
@@ -43,6 +44,7 @@ public sealed class OptionsApi
         var query = RequestQuery.From(options);
         Add(query, "strike", request.Strike);
         AddDate(query, "date", request.Date);
+        AddBoolean(query, "nonstandard", request.NonStandard);
         var response = await _apiClient.GetAsync(
             $"options/expirations/{Uri.EscapeDataString(request.Symbol)}",
             true,
@@ -59,7 +61,8 @@ public sealed class OptionsApi
                     "expirations");
                 return (Values: expirations, Updated: JsonResponseParser.Timestamp(root, "updated"));
             },
-            (Values: (IReadOnlyList<DateTimeOffset>)Array.Empty<DateTimeOffset>(), Updated: (DateTimeOffset?)null));
+            (Values: (IReadOnlyList<DateTimeOffset>)Array.Empty<DateTimeOffset>(), Updated: (DateTimeOffset?)null),
+            requestedColumns: options?.Columns);
         return JsonResponseParser.CreateResponse<OptionsExpirationsResponse, IReadOnlyList<DateTimeOffset>>(
             response,
             result.Values,
@@ -70,6 +73,31 @@ public sealed class OptionsApi
             });
     }
 
+    /// <summary>Gets available strike prices grouped by expiration date.</summary>
+    public async Task<OptionsStrikesResponse> GetStrikesAsync(
+        OptionsStrikesRequest request,
+        MarketDataRequestOptions? options = null,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+        var query = RequestQuery.From(options);
+        AddDate(query, "date", request.Date);
+        AddDate(query, "expiration", request.Expiration);
+        var response = await _apiClient.GetAsync(
+            $"options/strikes/{Uri.EscapeDataString(request.Underlying)}",
+            true,
+            query,
+            cancellationToken).ConfigureAwait(false);
+        var values = JsonResponseParser.DecodeOrDefault(
+            response,
+            ParseOptionStrikes,
+            new OptionStrikes(
+                null,
+                new Dictionary<DateOnly, IReadOnlyList<double>>()),
+            requestedColumns: options?.Columns);
+        return JsonResponseParser.CreateResponse<OptionsStrikesResponse, OptionStrikes>(response, values);
+    }
+
     /// <summary>Gets historical or current quotes for one OCC option symbol.</summary>
     public async Task<OptionsQuotesResponse> GetQuoteAsync(
         OptionsQuoteRequest request,
@@ -77,6 +105,8 @@ public sealed class OptionsApi
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(request);
+        RequestValidator.ValidateDateWindow(
+            request.Date, request.From, request.To, request.Countback, nameof(request));
         var response = await GetQuoteResponseAsync(
             request.OptionSymbol,
             request.Date,
@@ -97,6 +127,8 @@ public sealed class OptionsApi
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(request);
+        RequestValidator.ValidateDateWindow(
+            request.Date, request.From, request.To, request.Countback, nameof(request));
         var tasks = request.OptionSymbols.Select(async symbol =>
         {
             var response = await GetQuoteResponseAsync(
@@ -120,6 +152,7 @@ public sealed class OptionsApi
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(request);
+        ValidateChainRequest(request);
         var query = RequestQuery.From(options);
         AddExpirationFilter(query, request.Expiration);
         AddBoolean(query, "weekly", request.Weekly);
@@ -149,7 +182,10 @@ public sealed class OptionsApi
             query,
             cancellationToken).ConfigureAwait(false);
         var values = JsonResponseParser.DecodeOrDefault(
-            response, ParseOptionQuotes, Array.Empty<OptionQuote>());
+            response,
+            ParseOptionQuotes,
+            Array.Empty<OptionQuote>(),
+            requestedColumns: options?.Columns);
         return JsonResponseParser.CreateResponse<OptionsChainResponse, IReadOnlyList<OptionQuote>>(response, values);
     }
 
@@ -176,9 +212,26 @@ public sealed class OptionsApi
         var query = RequestQuery.Csv(options);
         Add(query, "strike", request.Strike);
         AddDate(query, "date", request.Date);
+        AddBoolean(query, "nonstandard", request.NonStandard);
         return await GetCsvAsync(
             $"options/expirations/{Uri.EscapeDataString(request.Symbol)}", query, cancellationToken)
             .ConfigureAwait(false);
+    }
+
+    /// <summary>Gets available strike prices grouped by expiration date as CSV.</summary>
+    public async Task<CsvResponse> GetStrikesCsvAsync(
+        OptionsStrikesRequest request,
+        MarketDataRequestOptions? options = null,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+        var query = RequestQuery.Csv(options);
+        AddDate(query, "date", request.Date);
+        AddDate(query, "expiration", request.Expiration);
+        return await GetCsvAsync(
+            $"options/strikes/{Uri.EscapeDataString(request.Underlying)}",
+            query,
+            cancellationToken).ConfigureAwait(false);
     }
 
     /// <summary>Gets historical or current quotes for one OCC option symbol as CSV.</summary>
@@ -188,8 +241,10 @@ public sealed class OptionsApi
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(request);
+        RequestValidator.ValidateDateWindow(
+            request.Date, request.From, request.To, request.Countback, nameof(request));
         var query = RequestQuery.Csv(options);
-        AddDateWindow(query, request.Date, request.From, request.To, request.Countback);
+        RequestQuery.AddDateWindow(query, request.Date, request.From, request.To, request.Countback);
         return await GetCsvAsync(
             $"options/quotes/{Uri.EscapeDataString(request.OptionSymbol)}", query, cancellationToken)
             .ConfigureAwait(false);
@@ -202,10 +257,12 @@ public sealed class OptionsApi
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(request);
+        RequestValidator.ValidateDateWindow(
+            request.Date, request.From, request.To, request.Countback, nameof(request));
         var tasks = request.OptionSymbols.Select(async symbol =>
         {
             var query = RequestQuery.Csv(options);
-            AddDateWindow(query, request.Date, request.From, request.To, request.Countback);
+            RequestQuery.AddDateWindow(query, request.Date, request.From, request.To, request.Countback);
             var response = await GetCsvAsync(
                 $"options/quotes/{Uri.EscapeDataString(symbol)}", query, cancellationToken)
                 .ConfigureAwait(false);
@@ -222,6 +279,7 @@ public sealed class OptionsApi
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(request);
+        ValidateChainRequest(request);
         var query = RequestQuery.Csv(options);
         AddExpirationFilter(query, request.Expiration);
         AddBoolean(query, "weekly", request.Weekly);
@@ -269,14 +327,17 @@ public sealed class OptionsApi
         CancellationToken cancellationToken)
     {
         var query = RequestQuery.From(options);
-        AddDateWindow(query, date, from, to, countback);
+        RequestQuery.AddDateWindow(query, date, from, to, countback);
         var response = await _apiClient.GetAsync(
             $"options/quotes/{Uri.EscapeDataString(optionSymbol)}",
             true,
             query,
             cancellationToken).ConfigureAwait(false);
         var values = JsonResponseParser.DecodeOrDefault(
-            response, ParseOptionQuotes, Array.Empty<OptionQuote>());
+            response,
+            ParseOptionQuotes,
+            Array.Empty<OptionQuote>(),
+            requestedColumns: options?.Columns);
         return JsonResponseParser.CreateResponse<OptionsQuotesResponse, IReadOnlyList<OptionQuote>>(response, values);
     }
 
@@ -315,6 +376,43 @@ public sealed class OptionsApi
             "volume", "inTheMoney", "intrinsicValue", "extrinsicValue", "underlyingPrice",
             "iv", "delta", "gamma", "theta", "vega", "rho");
 
+    private static OptionStrikes ParseOptionStrikes(JsonElement root)
+    {
+        var strikes = new Dictionary<DateOnly, IReadOnlyList<double>>();
+        foreach (var property in root.EnumerateObject())
+        {
+            if (!DateOnly.TryParseExact(
+                    property.Name,
+                    "yyyy-MM-dd",
+                    CultureInfo.InvariantCulture,
+                    DateTimeStyles.None,
+                    out var expiration))
+            {
+                continue;
+            }
+
+            if (property.Value.ValueKind != JsonValueKind.Array)
+            {
+                throw new JsonException($"Strike field '{property.Name}' must be an array.");
+            }
+
+            var values = new List<double>(property.Value.GetArrayLength());
+            foreach (var value in property.Value.EnumerateArray())
+            {
+                if (!value.TryGetDouble(out var strike))
+                {
+                    throw new JsonException($"Strike field '{property.Name}' contains a non-numeric value.");
+                }
+
+                values.Add(strike);
+            }
+
+            strikes.Add(expiration, values);
+        }
+
+        return new OptionStrikes(JsonResponseParser.Timestamp(root, "updated"), strikes);
+    }
+
     private static void AddExpirationFilter(
         ICollection<KeyValuePair<string, string?>> query,
         ExpirationFilter? filter)
@@ -352,19 +450,6 @@ public sealed class OptionsApi
             _ => throw new ArgumentOutOfRangeException(nameof(filter), filter, null)
         };
 
-    private static void AddDateWindow(
-        ICollection<KeyValuePair<string, string?>> query,
-        DateOnly? date,
-        DateOnly? from,
-        DateOnly? to,
-        int? countback)
-    {
-        AddDate(query, "date", date);
-        AddDate(query, "from", from);
-        AddDate(query, "to", to);
-        Add(query, "countback", countback);
-    }
-
     private static void AddDate(
         ICollection<KeyValuePair<string, string?>> query,
         string name,
@@ -376,6 +461,47 @@ public sealed class OptionsApi
         string name,
         bool? value) =>
         RequestQuery.Add(query, name, value?.ToString().ToLowerInvariant());
+
+    private static void ValidateChainRequest(OptionsChainRequest request)
+    {
+        if (request.Delta is < -1 or > 1)
+        {
+            throw new ArgumentOutOfRangeException(nameof(request), request.Delta, "Delta must be between -1 and 1.");
+        }
+
+        if (request.StrikeLimit is <= 0)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(request),
+                request.StrikeLimit,
+                "StrikeLimit must be positive.");
+        }
+
+        ValidateRange(request.MinBid, request.MaxBid, "bid", nameof(request));
+        ValidateRange(request.MinAsk, request.MaxAsk, "ask", nameof(request));
+        if (request.MaxBidAskSpread is < 0
+            || request.MaxBidAskSpreadPct is < 0
+            || request.MinOpenInterest is < 0
+            || request.MinVolume is < 0)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(request),
+                "Spread, open-interest, and volume filters cannot be negative.");
+        }
+    }
+
+    private static void ValidateRange(double? minimum, double? maximum, string name, string parameterName)
+    {
+        if (minimum is < 0 || maximum is < 0)
+        {
+            throw new ArgumentOutOfRangeException(parameterName, $"{name} filters cannot be negative.");
+        }
+
+        if (minimum is { } min && maximum is { } max && min > max)
+        {
+            throw new ArgumentException($"Minimum {name} cannot exceed maximum {name}.", parameterName);
+        }
+    }
 
     private static void Add(
         ICollection<KeyValuePair<string, string?>> query,

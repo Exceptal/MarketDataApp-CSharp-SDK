@@ -1,0 +1,114 @@
+name: CI
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+    inputs:
+      run_integration_tests:
+        description: Run live integration tests (requires MARKETDATA_TOKEN secret)
+        type: boolean
+        default: false
+
+jobs:
+  build:
+    name: Build / Test / Pack
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0   # full history required for Source Link
+
+      - name: Setup .NET 10
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.x'
+          dotnet-quality: 'ga'
+
+      - name: Restore
+        run: dotnet restore MarketData.slnx
+
+      - name: Build
+        run: dotnet build MarketData.slnx --no-restore -c Release /p:ContinuousIntegrationBuild=true
+
+      - name: Test with coverage
+        run: |
+          dotnet test src/MarketData.Tests/MarketData.Tests.csproj \
+            --no-build \
+            -c Release \
+            --collect:"XPlat Code Coverage" \
+            --results-directory TestResults \
+            --settings coverlet.runsettings \
+            --logger "trx;LogFileName=test-results.trx"
+
+      - name: Check formatting
+        run: dotnet format MarketData.slnx --verify-no-changes --no-restore
+
+      - name: Pack
+        run: |
+          dotnet pack src/MarketData/MarketData.csproj \
+            -c Release --no-build \
+            /p:ContinuousIntegrationBuild=true \
+            -o artifacts/
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results
+          path: TestResults/
+
+      - name: Upload coverage report
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage
+          path: TestResults/**/coverage.opencover.xml
+
+      - name: Upload NuGet packages
+        uses: actions/upload-artifact@v4
+        with:
+          name: nupkg-ci
+          path: artifacts/
+
+  integration:
+    name: Integration Tests (live)
+    # Only runs when explicitly dispatched with the checkbox enabled.
+    # The IntegrationFactAttribute guard inside the tests also skips individual
+    # tests when MARKETDATA_TOKEN or MARKETDATA_RUN_INTEGRATION_TESTS is absent.
+    if: github.event_name == 'workflow_dispatch' && github.event.inputs.run_integration_tests == 'true'
+    runs-on: ubuntu-latest
+    env:
+      MARKETDATA_RUN_INTEGRATION_TESTS: "true"
+      MARKETDATA_TOKEN: ${{ secrets.MARKETDATA_TOKEN }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET 10
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.x'
+          dotnet-quality: 'ga'
+
+      - name: Restore
+        run: dotnet restore MarketData.slnx
+
+      - name: Build
+        run: dotnet build MarketData.slnx --no-restore -c Release
+
+      - name: Run integration tests
+        run: |
+          dotnet test src/MarketData.IntegrationTests/MarketData.IntegrationTests.csproj \
+            --no-build -c Release \
+            --results-directory TestResults \
+            --logger "trx;LogFileName=integration-results.trx"
+
+      - name: Upload integration test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: integration-test-results
+          path: TestResults/

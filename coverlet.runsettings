@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!--
+  Run settings for Coverlet XPlat Code Coverage data collector.
+  Pass to dotnet test via:
+    dotnet test -collect:"XPlat Code Coverage" -settings coverlet.runsettings
+-->
+<RunSettings>
+  <DataCollectionRunSettings>
+    <DataCollectors>
+      <DataCollector friendlyName="XPlat Code Coverage">
+        <Configuration>
+          <!-- Output in both OpenCover (for most CI tools) and JSON (for local diffs) -->
+          <Format>opencover,json</Format>
+
+          <!-- Exclude test assemblies from coverage measurement -->
+          <Exclude>[MarketData.Tests]*,[MarketData.IntegrationTests]*</Exclude>
+
+          <!-- Ignore generated build artefacts -->
+          <ExcludeByFile>**/obj/**,**/bin/**</ExcludeByFile>
+
+          <!-- Record the first hit only — false means count all hits -->
+          <SingleHit>false</SingleHit>
+
+          <!-- Do not measure coverage within test assemblies themselves -->
+          <IncludeTestAssembly>false</IncludeTestAssembly>
+
+          <!-- Emit Source Link-aware paths so coverage tools map back to source -->
+          <UseSourceLink>true</UseSourceLink>
+        </Configuration>
+      </DataCollector>
+    </DataCollectors>
+  </DataCollectionRunSettings>
+</RunSettings>

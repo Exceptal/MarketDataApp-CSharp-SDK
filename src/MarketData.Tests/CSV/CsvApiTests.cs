@@ -81,6 +81,80 @@ public sealed class CsvApiTests
         Assert.Contains("format=csv", handler.LastRequest.RequestUri.Query);
     }
 
+    [Fact]
+    public async Task LongRangeStockCandlesCsv_ChunksAndDeduplicatesHeaders()
+    {
+        var requests = 0;
+        var handler = new StubHttpMessageHandler(_ =>
+        {
+            var row = Interlocked.Increment(ref requests);
+            return new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = new StringContent($"t,c\r\n{row},{100 + row}\r\n", Encoding.UTF8, "text/csv")
+            };
+        });
+        var client = MarketDataTestClient.Create(handler);
+
+        var response = await client.Stocks.GetCandlesCsvAsync(
+            new StockCandlesRequest(StockResolution.Minutes(5), "AAPL")
+            {
+                From = new DateOnly(2020, 1, 1),
+                To = new DateOnly(2022, 1, 1)
+            });
+
+        Assert.Equal(3, requests);
+        Assert.Equal(1, response.Csv.Split("t,c", StringSplitOptions.None).Length - 1);
+        Assert.Contains("1,101", response.Csv);
+        Assert.Contains("3,103", response.Csv);
+        Assert.True(response.IsComposite);
+        Assert.Equal(3, response.Parts.Count);
+        Assert.Equal(response.Csv, response.RawBody);
+    }
+
+    [Fact]
+    public async Task LongRangeStockCandlesCsv_PreservesFirstHeaderAfterEmptyChunk()
+    {
+        var handler = new StubHttpMessageHandler(request =>
+        {
+            var content = request.RequestUri!.Query.Contains("from=2020-01-01", StringComparison.Ordinal)
+                ? string.Empty
+                : "t,c\r\n1,101\r\n";
+            return new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = new StringContent(content, Encoding.UTF8, "text/csv")
+            };
+        });
+        var client = MarketDataTestClient.Create(handler);
+
+        var response = await client.Stocks.GetCandlesCsvAsync(
+            new StockCandlesRequest(StockResolution.Minutes(5), "AAPL")
+            {
+                From = new DateOnly(2020, 1, 1),
+                To = new DateOnly(2022, 1, 1)
+            });
+
+        Assert.StartsWith("t,c", response.Csv, StringComparison.Ordinal);
+        Assert.Equal(1, response.Csv.Split("t,c", StringSplitOptions.None).Length - 1);
+        Assert.Equal(2, response.Csv.Split("1,101", StringSplitOptions.None).Length - 1);
+    }
+
+    [Fact]
+    public async Task SchemaCsvEndpoints_UseExpectedPaths()
+    {
+        var handler = CreateHandler("value\r\n1\r\n");
+        var client = MarketDataTestClient.Create(handler);
+
+        await client.Options.GetStrikesCsvAsync(new OptionsStrikesRequest("AAPL"));
+        Assert.Equal("/v1/options/strikes/AAPL/", handler.LastRequest!.RequestUri!.AbsolutePath);
+
+        await client.Stocks.GetPriceCsvAsync(new StockPriceRequest("AAPL"));
+        Assert.Equal("/v1/stocks/prices/AAPL/", handler.LastRequest.RequestUri!.AbsolutePath);
+
+        await client.Stocks.GetBulkQuotesCsvAsync(new StockBulkQuotesRequest("AAPL", "MSFT"));
+        Assert.Equal("/v1/stocks/bulkquotes/", handler.LastRequest.RequestUri!.AbsolutePath);
+        Assert.Contains("symbols=AAPL%2CMSFT", handler.LastRequest.RequestUri.Query);
+    }
+
     private static StubHttpMessageHandler CreateHandler(string body)
     {
         var handler = new StubHttpMessageHandler(_ => new HttpResponseMessage(HttpStatusCode.OK)

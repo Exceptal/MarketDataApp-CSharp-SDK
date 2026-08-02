@@ -17,12 +17,10 @@ public sealed class MarketsApi
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(request);
+        ValidateRequest(request);
         var query = RequestQuery.From(options);
         RequestQuery.Add(query, "country", request.Country);
-        RequestQuery.Add(query, "date", request.Date is { } date ? RequestQuery.Date(date) : null);
-        RequestQuery.Add(query, "from", request.From is { } from ? RequestQuery.Date(from) : null);
-        RequestQuery.Add(query, "to", request.To is { } to ? RequestQuery.Date(to) : null);
-        RequestQuery.Add(query, "countback", request.Countback?.ToString());
+        RequestQuery.AddDateWindow(query, request.Date, request.From, request.To, request.Countback);
 
         var response = await _apiClient.GetAsync("markets/status", true, query, cancellationToken)
             .ConfigureAwait(false);
@@ -32,7 +30,8 @@ public sealed class MarketsApi
                 root,
                 row => new MarketStatus(row.Timestamp("date"), row.String("status")),
                 "date", "status"),
-            Array.Empty<MarketStatus>());
+            Array.Empty<MarketStatus>(),
+            requestedColumns: options?.Columns);
         return JsonResponseParser.CreateResponse<MarketStatusResponse, IReadOnlyList<MarketStatus>>(response, values);
     }
 
@@ -43,14 +42,24 @@ public sealed class MarketsApi
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(request);
+        ValidateRequest(request);
         var query = RequestQuery.Csv(options);
         RequestQuery.Add(query, "country", request.Country);
-        RequestQuery.Add(query, "date", request.Date is { } date ? RequestQuery.Date(date) : null);
-        RequestQuery.Add(query, "from", request.From is { } from ? RequestQuery.Date(from) : null);
-        RequestQuery.Add(query, "to", request.To is { } to ? RequestQuery.Date(to) : null);
-        RequestQuery.Add(query, "countback", request.Countback?.ToString());
+        RequestQuery.AddDateWindow(query, request.Date, request.From, request.To, request.Countback);
         var response = await _apiClient.GetAsync("markets/status", true, query, cancellationToken)
             .ConfigureAwait(false);
         return JsonResponseParser.CreateCsvResponse(response);
+    }
+
+    private static void ValidateRequest(MarketStatusRequest request)
+    {
+        RequestValidator.ValidateDateWindow(
+            request.Date, request.From, request.To, request.Countback, nameof(request));
+        if (request.Country is { Length: not 2 })
+        {
+            throw new ArgumentException(
+                "Country must be a two-letter ISO 3166 country code.",
+                nameof(request));
+        }
     }
 }

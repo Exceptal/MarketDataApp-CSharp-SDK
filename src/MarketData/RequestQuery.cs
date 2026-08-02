@@ -6,6 +6,7 @@ internal static class RequestQuery
 {
     public static List<KeyValuePair<string, string?>> From(MarketDataRequestOptions? options)
     {
+        RequestValidator.ValidateRequestOptions(options);
         var query = new List<KeyValuePair<string, string?>>();
         if (options is null)
         {
@@ -41,4 +42,17 @@ internal static class RequestQuery
     }
 
     public static string Date(DateOnly value) => value.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
+
+    public static void AddDateWindow(
+        ICollection<KeyValuePair<string, string?>> query,
+        DateOnly? date,
+        DateOnly? from,
+        DateOnly? to,
+        int? countback)
+    {
+        Add(query, "date", date is { } dateValue ? Date(dateValue) : null);
+        Add(query, "from", from is { } fromValue ? Date(fromValue) : null);
+        Add(query, "to", to is { } toValue ? Date(toValue) : null);
+        Add(query, "countback", countback?.ToString(CultureInfo.InvariantCulture));
+    }
 }

@@ -24,6 +24,7 @@ _ReSharper*/
 # NuGet
 packages/
 *.nupkg
+*.snupkg
 project.lock.json
 project.fragment.lock.json
 

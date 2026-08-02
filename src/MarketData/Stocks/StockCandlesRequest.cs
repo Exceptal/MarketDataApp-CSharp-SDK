@@ -4,9 +4,9 @@ namespace MarketData.Stocks;
 /// Parameters for <c>GET /v1/stocks/candles/{resolution}/{symbol}/</c>.
 /// </summary>
 /// <remarks>
-/// At most one of <see cref="Date"/>, <see cref="From"/>/<see cref="To"/>, or <see cref="Countback"/>
-/// may be set — they are mutually exclusive windowing strategies. Validation is enforced
-/// by the resource façade before the request is dispatched.
+/// <see cref="Date"/> cannot be combined with range or countback fields.
+/// <see cref="Countback"/> may be combined with <see cref="To"/>, but not <see cref="From"/>.
+/// Validation is enforced by the resource façade before the request is dispatched.
 /// </remarks>
 public record StockCandlesRequest
 {

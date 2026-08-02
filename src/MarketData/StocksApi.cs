@@ -52,7 +52,8 @@ public sealed class StocksApi
                     row.Double("52weekLow")),
                 "symbol", "ask", "askSize", "bid", "bidSize", "mid", "last", "change",
                 "changepct", "volume", "updated", "o", "h", "l", "c", "52weekHigh", "52weekLow"),
-            Array.Empty<StockQuote>());
+            Array.Empty<StockQuote>(),
+            requestedColumns: options?.Columns);
         return JsonResponseParser.CreateResponse<StockQuotesResponse, IReadOnlyList<StockQuote>>(response, values);
     }
 
@@ -78,7 +79,28 @@ public sealed class StocksApi
                     row.Double("changepct"),
                     row.Timestamp("updated")),
                 "symbol", "mid", "change", "changepct", "updated"),
-            Array.Empty<StockPrice>());
+            Array.Empty<StockPrice>(),
+            requestedColumns: options?.Columns);
+        return JsonResponseParser.CreateResponse<StockPricesResponse, IReadOnlyList<StockPrice>>(response, values);
+    }
+
+    /// <summary>Gets the latest price for one stock symbol using the path-based endpoint.</summary>
+    public async Task<StockPricesResponse> GetPriceAsync(
+        StockPriceRequest request,
+        MarketDataRequestOptions? options = null,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+        var response = await _apiClient.GetAsync(
+            $"stocks/prices/{Uri.EscapeDataString(request.Symbol)}",
+            true,
+            RequestQuery.From(options),
+            cancellationToken).ConfigureAwait(false);
+        var values = JsonResponseParser.DecodeOrDefault(
+            response,
+            ParsePrices,
+            Array.Empty<StockPrice>(),
+            requestedColumns: options?.Columns);
         return JsonResponseParser.CreateResponse<StockPricesResponse, IReadOnlyList<StockPrice>>(response, values);
     }
 
@@ -96,7 +118,31 @@ public sealed class StocksApi
         AddBoolean(query, "52week", request.Week52);
         var response = await _apiClient.GetAsync("stocks/quotes", true, query, cancellationToken)
             .ConfigureAwait(false);
-        var values = JsonResponseParser.DecodeOrDefault(response, ParseQuotes, Array.Empty<StockQuote>());
+        var values = JsonResponseParser.DecodeOrDefault(
+            response,
+            ParseQuotes,
+            Array.Empty<StockQuote>(),
+            requestedColumns: options?.Columns);
+        return JsonResponseParser.CreateResponse<StockQuotesResponse, IReadOnlyList<StockQuote>>(response, values);
+    }
+
+    /// <summary>Gets bulk quotes for multiple stock symbols.</summary>
+    public async Task<StockQuotesResponse> GetBulkQuotesAsync(
+        StockBulkQuotesRequest request,
+        MarketDataRequestOptions? options = null,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+        var query = RequestQuery.From(options);
+        RequestQuery.Add(query, "symbols", string.Join(",", request.Symbols));
+        AddBoolean(query, "extended", request.Extended);
+        var response = await _apiClient.GetAsync("stocks/bulkquotes", true, query, cancellationToken)
+            .ConfigureAwait(false);
+        var values = JsonResponseParser.DecodeOrDefault(
+            response,
+            ParseQuotes,
+            Array.Empty<StockQuote>(),
+            requestedColumns: options?.Columns);
         return JsonResponseParser.CreateResponse<StockQuotesResponse, IReadOnlyList<StockQuote>>(response, values);
     }
 
@@ -107,7 +153,8 @@ public sealed class StocksApi
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(request);
-        ValidateCandleWindow(request);
+        RequestValidator.ValidateDateWindow(
+            request.Date, request.From, request.To, request.Countback, nameof(request));
         var chunks = CandleChunks(request);
         if (chunks.Count == 1)
         {
@@ -119,15 +166,17 @@ public sealed class StocksApi
             chunks.Select(chunk => GetCandlesResponseAsync(
                 request, chunk.From, chunk.To, options, cancellationToken))).ConfigureAwait(false);
         var merged = responses.SelectMany(response => response.Values).ToArray();
-        var last = responses[^1];
-        return JsonResponseParser.CreateResponse<StockCandlesResponse, IReadOnlyList<StockCandle>>(
-            new InternalApiResponse(
-                Encoding.UTF8.GetBytes(last.RawBody),
-                last.RequestUrl,
-                last.StatusCode,
-                last.RequestId,
-                last.RateLimit),
-            merged);
+        var path = CandlePath(request);
+        var logicalRequestUrl = _apiClient.CreateRequestUri(
+            path,
+            versioned: true,
+            CreateCandleQuery(request, request.From, request.To, options, csv: false));
+        return JsonResponseParser.CreateCompositeResponse<StockCandlesResponse, IReadOnlyList<StockCandle>>(
+            merged,
+            logicalRequestUrl,
+            CompositeStatusCode(responses.Select(response => (response.IsNoData, response.StatusCode))),
+            Array.Empty<byte>(),
+            responses.SelectMany(response => response.Parts).ToArray());
     }
 
     /// <summary>Gets news articles for a stock symbol.</summary>
@@ -137,13 +186,15 @@ public sealed class StocksApi
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(request);
+        RequestValidator.ValidateDateWindow(
+            request.Date, request.From, request.To, request.Countback, nameof(request));
         if (options?.Columns is { Count: > 0 })
         {
             throw new ArgumentException("Columns projection is not supported for typed news responses.", nameof(options));
         }
 
         var query = RequestQuery.From(options);
-        AddDateWindow(query, request.Date, request.From, request.To, request.Countback);
+        RequestQuery.AddDateWindow(query, request.Date, request.From, request.To, request.Countback);
         var response = await _apiClient.GetAsync(
             $"stocks/news/{Uri.EscapeDataString(request.Symbol)}",
             true,
@@ -164,7 +215,8 @@ public sealed class StocksApi
                     "symbol", "headline", "content", "source", "publicationDate");
                 return (Articles: (IReadOnlyList<StockNewsArticle>)articles, Updated: JsonResponseParser.Timestamp(root, "updated"));
             },
-            (Articles: (IReadOnlyList<StockNewsArticle>)Array.Empty<StockNewsArticle>(), Updated: (DateTimeOffset?)null));
+            (Articles: (IReadOnlyList<StockNewsArticle>)Array.Empty<StockNewsArticle>(), Updated: (DateTimeOffset?)null),
+            requestedColumns: options?.Columns);
         return JsonResponseParser.CreateResponse<StockNewsResponse, IReadOnlyList<StockNewsArticle>>(
             response,
             result.Articles,
@@ -182,8 +234,9 @@ public sealed class StocksApi
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(request);
+        ValidateEarningsRequest(request);
         var query = RequestQuery.From(options);
-        AddDateWindow(query, request.Date, request.From, request.To, request.Countback);
+        RequestQuery.AddDateWindow(query, request.Date, request.From, request.To, request.Countback);
         RequestQuery.Add(query, "report", request.Report);
         var response = await _apiClient.GetAsync(
             $"stocks/earnings/{Uri.EscapeDataString(request.Symbol)}",
@@ -209,7 +262,8 @@ public sealed class StocksApi
                     row.Timestamp("updated")),
                 "symbol", "fiscalYear", "fiscalQuarter", "date", "reportDate", "reportTime",
                 "currency", "reportedEPS", "estimatedEPS", "surpriseEPS", "surpriseEPSpct", "updated"),
-            Array.Empty<StockEarning>());
+            Array.Empty<StockEarning>(),
+            requestedColumns: options?.Columns);
         return JsonResponseParser.CreateResponse<StockEarningsResponse, IReadOnlyList<StockEarning>>(response, values);
     }
 
@@ -241,6 +295,19 @@ public sealed class StocksApi
         return await GetCsvAsync("stocks/prices", query, cancellationToken).ConfigureAwait(false);
     }
 
+    /// <summary>Gets a CSV price for one stock symbol using the path-based endpoint.</summary>
+    public async Task<CsvResponse> GetPriceCsvAsync(
+        StockPriceRequest request,
+        MarketDataRequestOptions? options = null,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+        return await GetCsvAsync(
+            $"stocks/prices/{Uri.EscapeDataString(request.Symbol)}",
+            RequestQuery.Csv(options),
+            cancellationToken).ConfigureAwait(false);
+    }
+
     /// <summary>Gets CSV quotes for multiple stock symbols.</summary>
     public async Task<CsvResponse> GetQuotesCsvAsync(
         StockQuotesRequest request,
@@ -256,6 +323,19 @@ public sealed class StocksApi
         return await GetCsvAsync("stocks/quotes", query, cancellationToken).ConfigureAwait(false);
     }
 
+    /// <summary>Gets bulk quotes for multiple stock symbols as CSV.</summary>
+    public async Task<CsvResponse> GetBulkQuotesCsvAsync(
+        StockBulkQuotesRequest request,
+        MarketDataRequestOptions? options = null,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+        var query = RequestQuery.Csv(options);
+        RequestQuery.Add(query, "symbols", string.Join(",", request.Symbols));
+        AddBoolean(query, "extended", request.Extended);
+        return await GetCsvAsync("stocks/bulkquotes", query, cancellationToken).ConfigureAwait(false);
+    }
+
     /// <summary>Gets CSV OHLCV candles for a stock symbol.</summary>
     public async Task<CsvResponse> GetCandlesCsvAsync(
         StockCandlesRequest request,
@@ -263,16 +343,32 @@ public sealed class StocksApi
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(request);
-        ValidateCandleWindow(request);
-        var query = RequestQuery.Csv(options);
-        AddDateWindow(query, request.Date, request.From, request.To, request.Countback);
-        RequestQuery.Add(query, "exchange", request.Exchange);
-        AddBoolean(query, "extended", request.Extended);
-        RequestQuery.Add(query, "country", request.Country);
-        AddBoolean(query, "adjustsplits", request.AdjustSplits);
-        AddBoolean(query, "adjustdividends", request.AdjustDividends);
-        var path = $"stocks/candles/{Uri.EscapeDataString(request.Resolution.WireValue)}/{Uri.EscapeDataString(request.Symbol)}";
-        return await GetCsvAsync(path, query, cancellationToken).ConfigureAwait(false);
+        RequestValidator.ValidateDateWindow(
+            request.Date, request.From, request.To, request.Countback, nameof(request));
+        var chunks = CandleChunks(request);
+        if (chunks.Count == 1)
+        {
+            return await GetCsvAsync(
+                CandlePath(request),
+                CreateCandleQuery(request, request.From, request.To, options, csv: true),
+                cancellationToken).ConfigureAwait(false);
+        }
+
+        var responses = await Task.WhenAll(chunks.Select(chunk => GetCsvAsync(
+            CandlePath(request),
+            CreateCandleQuery(request, chunk.From, chunk.To, options, csv: true),
+            cancellationToken))).ConfigureAwait(false);
+        var mergedCsv = MergeCandleCsv(responses, options?.Headers is not false);
+        var logicalRequestUrl = _apiClient.CreateRequestUri(
+            CandlePath(request),
+            versioned: true,
+            CreateCandleQuery(request, request.From, request.To, options, csv: true));
+        return JsonResponseParser.CreateCompositeResponse<CsvResponse, string>(
+            mergedCsv,
+            logicalRequestUrl,
+            CompositeStatusCode(responses.Select(response => (response.IsNoData, response.StatusCode))),
+            Encoding.UTF8.GetBytes(mergedCsv),
+            responses.SelectMany(response => response.Parts).ToArray());
     }
 
     /// <summary>Gets CSV news articles for a stock symbol.</summary>
@@ -282,8 +378,10 @@ public sealed class StocksApi
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(request);
+        RequestValidator.ValidateDateWindow(
+            request.Date, request.From, request.To, request.Countback, nameof(request));
         var query = RequestQuery.Csv(options);
-        AddDateWindow(query, request.Date, request.From, request.To, request.Countback);
+        RequestQuery.AddDateWindow(query, request.Date, request.From, request.To, request.Countback);
         return await GetCsvAsync(
             $"stocks/news/{Uri.EscapeDataString(request.Symbol)}", query, cancellationToken)
             .ConfigureAwait(false);
@@ -296,8 +394,9 @@ public sealed class StocksApi
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(request);
+        ValidateEarningsRequest(request);
         var query = RequestQuery.Csv(options);
-        AddDateWindow(query, request.Date, request.From, request.To, request.Countback);
+        RequestQuery.AddDateWindow(query, request.Date, request.From, request.To, request.Countback);
         RequestQuery.Add(query, "report", request.Report);
         return await GetCsvAsync(
             $"stocks/earnings/{Uri.EscapeDataString(request.Symbol)}", query, cancellationToken)
@@ -321,14 +420,8 @@ public sealed class StocksApi
         MarketDataRequestOptions? options,
         CancellationToken cancellationToken)
     {
-        var query = RequestQuery.From(options);
-        AddDateWindow(query, request.Date, from, to, request.Countback);
-        RequestQuery.Add(query, "exchange", request.Exchange);
-        AddBoolean(query, "extended", request.Extended);
-        RequestQuery.Add(query, "country", request.Country);
-        AddBoolean(query, "adjustsplits", request.AdjustSplits);
-        AddBoolean(query, "adjustdividends", request.AdjustDividends);
-        var path = $"stocks/candles/{Uri.EscapeDataString(request.Resolution.WireValue)}/{Uri.EscapeDataString(request.Symbol)}";
+        var query = CreateCandleQuery(request, from, to, options, csv: false);
+        var path = CandlePath(request);
         var response = await _apiClient.GetAsync(path, true, query, cancellationToken)
             .ConfigureAwait(false);
         var values = JsonResponseParser.DecodeOrDefault(
@@ -343,8 +436,75 @@ public sealed class StocksApi
                     row.Double("c"),
                     row.Long("v")),
                 "t", "o", "h", "l", "c", "v"),
-            Array.Empty<StockCandle>());
+            Array.Empty<StockCandle>(),
+            requestedColumns: options?.Columns);
         return JsonResponseParser.CreateResponse<StockCandlesResponse, IReadOnlyList<StockCandle>>(response, values);
+    }
+
+    private static List<KeyValuePair<string, string?>> CreateCandleQuery(
+        StockCandlesRequest request,
+        DateOnly? from,
+        DateOnly? to,
+        MarketDataRequestOptions? options,
+        bool csv)
+    {
+        var query = csv ? RequestQuery.Csv(options) : RequestQuery.From(options);
+        RequestQuery.AddDateWindow(query, request.Date, from, to, request.Countback);
+        RequestQuery.Add(query, "exchange", request.Exchange);
+        AddBoolean(query, "extended", request.Extended);
+        RequestQuery.Add(query, "country", request.Country);
+        AddBoolean(query, "adjustsplits", request.AdjustSplits);
+        AddBoolean(query, "adjustdividends", request.AdjustDividends);
+        return query;
+    }
+
+    private static string CandlePath(StockCandlesRequest request) =>
+        $"stocks/candles/{Uri.EscapeDataString(request.Resolution.WireValue)}/{Uri.EscapeDataString(request.Symbol)}";
+
+    private static int CompositeStatusCode(IEnumerable<(bool IsNoData, int StatusCode)> responses)
+    {
+        var parts = responses.ToArray();
+        if (parts.All(response => response.IsNoData))
+        {
+            return 404;
+        }
+
+        return parts.Any(response => response.StatusCode == 203) ? 203 : 200;
+    }
+
+    private static string MergeCandleCsv(IReadOnlyList<CsvResponse> responses, bool includesHeaders)
+    {
+        var builder = new StringBuilder();
+        var headerWritten = false;
+        foreach (var response in responses)
+        {
+            var csv = response.Csv;
+            if (csv.Length == 0)
+            {
+                continue;
+            }
+
+            if (headerWritten && includesHeaders)
+            {
+                var newline = csv.IndexOf('\n');
+                csv = newline < 0 ? string.Empty : csv[(newline + 1)..];
+            }
+
+            if (csv.Length == 0)
+            {
+                continue;
+            }
+
+            if (builder.Length > 0 && builder[^1] is not ('\r' or '\n'))
+            {
+                builder.AppendLine();
+            }
+
+            builder.Append(csv);
+            headerWritten = true;
+        }
+
+        return builder.ToString();
     }
 
     private sealed record CandleDateRange(DateOnly? From, DateOnly? To);
@@ -377,24 +537,16 @@ public sealed class StocksApi
         return ranges;
     }
 
-    private static void ValidateCandleWindow(StockCandlesRequest request)
+    private static void ValidateEarningsRequest(StockEarningsRequest request)
     {
-        if (request.Date.HasValue && (request.From.HasValue || request.To.HasValue || request.Countback.HasValue)
-            || request.Countback.HasValue && (request.From.HasValue || request.To.HasValue))
+        RequestValidator.ValidateDateWindow(
+            request.Date, request.From, request.To, request.Countback, nameof(request));
+        if (!string.IsNullOrWhiteSpace(request.Report)
+            && (request.Date.HasValue || request.From.HasValue || request.To.HasValue || request.Countback.HasValue))
         {
             throw new ArgumentException(
-                "Date, From/To, and Countback are mutually exclusive candle window strategies.",
+                "Report cannot be combined with Date, From, To, or Countback.",
                 nameof(request));
-        }
-
-        if (request.Countback is <= 0)
-        {
-            throw new ArgumentOutOfRangeException(nameof(request.Countback), "Countback must be positive.");
-        }
-
-        if (request.From is { } from && request.To is { } to && from > to)
-        {
-            throw new ArgumentException("From must be on or before To.", nameof(request));
         }
     }
 
@@ -422,18 +574,16 @@ public sealed class StocksApi
             "symbol", "ask", "askSize", "bid", "bidSize", "mid", "last", "change",
             "changepct", "volume", "updated", "o", "h", "l", "c", "52weekHigh", "52weekLow");
 
-    private static void AddDateWindow(
-        ICollection<KeyValuePair<string, string?>> query,
-        DateOnly? date,
-        DateOnly? from,
-        DateOnly? to,
-        int? countback)
-    {
-        RequestQuery.Add(query, "date", date is { } dateValue ? RequestQuery.Date(dateValue) : null);
-        RequestQuery.Add(query, "from", from is { } fromValue ? RequestQuery.Date(fromValue) : null);
-        RequestQuery.Add(query, "to", to is { } toValue ? RequestQuery.Date(toValue) : null);
-        RequestQuery.Add(query, "countback", countback?.ToString());
-    }
+    private static IReadOnlyList<StockPrice> ParsePrices(System.Text.Json.JsonElement root) =>
+        JsonResponseParser.ReadParallelArray(
+            root,
+            row => new StockPrice(
+                row.String("symbol"),
+                row.Double("mid"),
+                row.Double("change"),
+                row.Double("changepct"),
+                row.Timestamp("updated")),
+            "symbol", "mid", "change", "changepct", "updated");
 
     private static void AddBoolean(
         ICollection<KeyValuePair<string, string?>> query,

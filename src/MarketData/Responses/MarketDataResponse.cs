@@ -23,6 +23,12 @@ public abstract record MarketDataResponse<T>
     /// <summary>Rate-limit information from this response's headers.</summary>
     public RateLimitSnapshot? RateLimit { get; internal init; }
 
+    /// <summary>
+    /// HTTP responses that contributed to this logical response. A normal endpoint response has
+    /// one part; an automatically chunked response has one part per HTTP request.
+    /// </summary>
+    public IReadOnlyList<MarketDataResponsePart> Parts { get; internal init; } = [];
+
     // Raw response bytes — internal so the transport can populate it; not exposed on the
     // public interface (callers use RawBody or SaveToFile).
     internal byte[] RawBodyBytes { get; init; } = Array.Empty<byte>();
@@ -31,11 +37,18 @@ public abstract record MarketDataResponse<T>
     /// Whether the API returned no data for the request. When <c>true</c>, <see cref="Values"/>
     /// is an empty collection (or empty string).
     /// </summary>
-    public bool IsNoData => StatusCode == 404;
+    public bool IsNoData { get; internal init; }
+
+    /// <summary>Whether this logical response was assembled from multiple HTTP responses.</summary>
+    public bool IsComposite => Parts.Count > 1;
 
     /// <summary>The raw response body decoded as a UTF-8 string.</summary>
     public string RawBody => Encoding.UTF8.GetString(RawBodyBytes);
 
     /// <summary>Writes the raw response body to <paramref name="path"/>.</summary>
     public void SaveToFile(string path) => File.WriteAllBytes(path, RawBodyBytes);
+
+    /// <summary>Writes the raw response body asynchronously.</summary>
+    public Task SaveToFileAsync(string path, CancellationToken cancellationToken = default) =>
+        File.WriteAllBytesAsync(path, RawBodyBytes, cancellationToken);
 }
