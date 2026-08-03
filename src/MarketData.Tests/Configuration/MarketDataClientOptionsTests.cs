@@ -66,6 +66,28 @@ public sealed class MarketDataClientOptionsTests
         Assert.Throws<ArgumentException>(() => MarketDataTestClient.Create(handler, options));
     }
 
+    [Fact]
+    public void FromConfiguration_BindsAllTransportTuningOptions()
+    {
+        var options = MarketDataClientOptions.FromConfiguration(Configuration(
+            new Dictionary<string, string?>
+            {
+                ["MarketData:RetryBaseDelay"] = "00:00:00.100",
+                ["MarketData:RetryMaxDelay"] = "00:00:10",
+                ["MarketData:MaxRetryAfter"] = "00:02:00",
+                ["MarketData:RetryJitterFactor"] = "0.1",
+                ["MarketData:MaxConcurrentRequests"] = "12",
+                ["MarketData:UserAgent"] = "test-client/1.0"
+            }));
+
+        Assert.Equal(TimeSpan.FromMilliseconds(100), options.RetryBaseDelay);
+        Assert.Equal(TimeSpan.FromSeconds(10), options.RetryMaxDelay);
+        Assert.Equal(TimeSpan.FromMinutes(2), options.MaxRetryAfter);
+        Assert.Equal(0.1, options.RetryJitterFactor);
+        Assert.Equal(12, options.MaxConcurrentRequests);
+        Assert.Equal("test-client/1.0", options.UserAgent);
+    }
+
     private static IConfiguration Configuration(IDictionary<string, string?> values) =>
         new ConfigurationBuilder().AddInMemoryCollection(values).Build();
 }

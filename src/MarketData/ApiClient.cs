@@ -227,9 +227,11 @@ internal sealed class ApiClient
 
         var jitter = 1 - _options.RetryJitterFactor
             + (Random.Shared.NextDouble() * 2 * _options.RetryJitterFactor);
-        return TimeSpan.FromTicks(Math.Min(
-            _options.RetryMaxDelay.Ticks,
-            checked((long)(ticks * jitter))));
+        var jitteredTicks = ticks * jitter;
+        var boundedTicks = jitteredTicks >= _options.RetryMaxDelay.Ticks
+            ? _options.RetryMaxDelay.Ticks
+            : (long)jitteredTicks;
+        return TimeSpan.FromTicks(boundedTicks);
     }
 
     private Uri BuildUri(

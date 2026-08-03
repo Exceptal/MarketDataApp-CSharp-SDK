@@ -386,6 +386,29 @@ public sealed class ApiClientTests
         Assert.Equal(2, handler.MaximumConcurrency);
     }
 
+    [Fact]
+    public async Task CustomUserAgent_IsSentOnEveryRequest()
+    {
+        var handler = new StubHttpMessageHandler(request =>
+        {
+            Assert.Equal("test-client/1.0", request.Headers.UserAgent.ToString());
+            return MarketDataTestClient.JsonResponse("""
+            {
+              "s": "ok",
+              "symbol": ["AAPL"],
+              "last": [190.25]
+            }
+            """);
+        });
+        var client = CreateClient(handler, new MarketDataClientOptions
+        {
+            UserAgent = "test-client/1.0",
+            MaxRetries = 0
+        });
+
+        await client.Stocks.GetQuoteAsync(new StockQuoteRequest("AAPL"));
+    }
+
     [Theory]
     [InlineData("ftp://api.marketdata.app/")]
     [InlineData("https://user@example.com/")]

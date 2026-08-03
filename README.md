@@ -171,8 +171,10 @@ provider (user-secrets, environment variables, Azure Key Vault, etc.).
 | `MarketData:MaxConcurrentRequests`    | `MaxConcurrentRequests` | `50`               | Maximum in-flight HTTP requests at one time (semaphore-guarded). |
 | `MarketData:UserAgent`                | `UserAgent`             | `marketdata-sdk-csharp/{version}` | `User-Agent` header value. |
 
-`TimeProvider` is not configurable via `IConfiguration`; pass it directly to the
-constructor to replace the system clock (useful in unit tests).
+All listed `MarketData:*` keys, including retry tuning, `MaxConcurrentRequests`, and
+`UserAgent`, are supported by `FromConfiguration`. `TimeProvider` is not configurable
+via `IConfiguration`; pass it directly to the constructor to replace the system clock,
+which is useful in unit tests.
 
 ---
 
