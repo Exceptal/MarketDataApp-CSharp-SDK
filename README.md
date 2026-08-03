@@ -85,7 +85,9 @@ foreach (var q in response.Values)
 See [`examples/QuickStart/`](examples/QuickStart/) for a full runnable example covering
 cancellation, CSV export, exception handling, and bulk quotes.
 See [`examples/WebApiSample/`](examples/WebApiSample/) for ASP.NET Core DI and
-`IHttpClientFactory` patterns.
+`IHttpClientFactory` patterns. Its Development launch profile opens the AAPL stock,
+AAPL options, VFINX fund, US market-status, and rate-limit sample URLs in the browser.
+Set `WebApiSample:OpenBrowserOnStart` to `false` to disable this behavior.
 
 ---
 

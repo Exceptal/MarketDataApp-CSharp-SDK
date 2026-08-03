@@ -3,7 +3,7 @@ namespace MarketData;
 /// <summary>
 /// Rate-limit information parsed from the <c>x-api-ratelimit-*</c> response headers.
 /// Exposed on every <see cref="MarketDataResponse{T}"/> and also available client-wide
-/// via <c>MarketDataClient.GetRateLimits()</c>.
+/// via <see cref="MarketDataClient.LatestRateLimit"/>.
 /// </summary>
 /// <param name="Limit">Total request quota for the current billing window.</param>
 /// <param name="Remaining">Requests remaining before the quota resets.</param>

@@ -12,10 +12,15 @@
 //   dotnet user-secrets set "MarketData:ApiToken" "your-api-token"
 //   dotnet run
 
+using System.ComponentModel;
+using System.Diagnostics;
 using MarketData;
 using MarketData.Exceptions;
+using MarketData.Funds;
 using MarketData.Options;
 using MarketData.Stocks;
+using Microsoft.AspNetCore.Hosting.Server;
+using Microsoft.AspNetCore.Hosting.Server.Features;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -48,6 +53,19 @@ builder.Services.AddSingleton<MarketDataClient>(sp =>
 var app = builder.Build();
 
 // ── Endpoints ────────────────────────────────────────────────────────────────────
+
+string[] samplePaths =
+[
+    "/quote/AAPL",
+    "/price/AAPL",
+    "/candles/AAPL?countback=5&resolution=D",
+    "/options/chain/AAPL",
+    "/funds/candles/VFINX?countback=5&resolution=D",
+    "/market/status?country=US",
+    "/ratelimit"
+];
+
+app.MapGet("/", () => Results.Ok(new { sampleUrls = samplePaths }));
 
 // GET /quote/{symbol}  →  latest real-time quote
 app.MapGet("/quote/{symbol}", async (
@@ -142,10 +160,37 @@ app.MapGet("/options/chain/{symbol}", async (
     try
     {
         var response = await marketData.Options.GetChainAsync(
-            new OptionsChainRequest(symbol),
+            new OptionsChainRequest(symbol) { StrikeLimit = 2 },
             cancellationToken: ct);
 
         return Results.Ok(response.Values);
+    }
+    catch (MarketDataException ex)
+    {
+        return Results.Problem(ex.Message, statusCode: ex.StatusCode > 0 ? ex.StatusCode : 502);
+    }
+});
+
+// GET /funds/candles/{symbol}?countback=5&resolution=D  →  mutual fund candles
+app.MapGet("/funds/candles/{symbol}", async (
+    string symbol,
+    int countback,
+    string resolution,
+    MarketDataClient marketData,
+    CancellationToken ct) =>
+{
+    try
+    {
+        var response = await marketData.Funds.GetCandlesAsync(
+            new FundCandlesRequest(FundResolution.Of(resolution), symbol)
+            {
+                Countback = countback
+            },
+            cancellationToken: ct);
+
+        return response.IsNoData
+            ? Results.NotFound(new { symbol })
+            : Results.Ok(response.Values);
     }
     catch (MarketDataException ex)
     {
@@ -178,5 +223,47 @@ app.MapGet("/ratelimit", (MarketDataClient marketData) =>
     marketData.LatestRateLimit is { } rl
         ? Results.Ok(rl)
         : Results.NoContent());
+
+if (app.Environment.IsDevelopment()
+    && !string.Equals(
+        app.Configuration["WebApiSample:OpenBrowserOnStart"],
+        "false",
+        StringComparison.OrdinalIgnoreCase))
+{
+    app.Lifetime.ApplicationStarted.Register(() =>
+    {
+        var addresses = app.Services
+            .GetRequiredService<IServer>()
+            .Features
+            .Get<IServerAddressesFeature>()?
+            .Addresses;
+        var baseAddress = addresses?
+            .OrderByDescending(address => address.StartsWith("https://", StringComparison.OrdinalIgnoreCase))
+            .FirstOrDefault();
+
+        if (baseAddress is null)
+        {
+            app.Logger.LogWarning("No server address was available to open sample URLs.");
+            return;
+        }
+
+        foreach (var path in samplePaths)
+        {
+            var url = new Uri(new Uri(baseAddress.TrimEnd('/') + "/"), path.TrimStart('/'));
+            try
+            {
+                Process.Start(new ProcessStartInfo(url.AbsoluteUri) { UseShellExecute = true });
+            }
+            catch (Win32Exception exception)
+            {
+                app.Logger.LogWarning(exception, "Could not open sample URL {SampleUrl}.", url);
+            }
+            catch (InvalidOperationException exception)
+            {
+                app.Logger.LogWarning(exception, "Could not open sample URL {SampleUrl}.", url);
+            }
+        }
+    });
+}
 
 app.Run();
