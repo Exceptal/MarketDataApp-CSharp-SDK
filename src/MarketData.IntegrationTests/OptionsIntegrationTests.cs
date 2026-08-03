@@ -5,24 +5,36 @@ namespace MarketData.IntegrationTests;
 public sealed class OptionsIntegrationTests : IntegrationTestBase
 {
     [IntegrationFact]
-    public async Task ExpirationsChainAndStrikes_ReturnExpectedShapes()
+    public async Task Expirations_ReturnExpectedShape()
     {
-        var expirations = await Client.Options.GetExpirationsAsync(
+        var response = await Client.Options.GetExpirationsAsync(
             new OptionsExpirationsRequest("AAPL"));
-        var chain = await Client.Options.GetChainAsync(
+
+        AssertSuccess(response.StatusCode);
+        Assert.NotEmpty(response.Values);
+    }
+
+    [IntegrationFact]
+    public async Task Chain_ReturnsExpectedShape()
+    {
+        var response = await Client.Options.GetChainAsync(
             new OptionsChainRequest("AAPL")
             {
                 Side = OptionSide.Call,
                 StrikeLimit = 2
             });
-        var strikes = await Client.Options.GetStrikesAsync(
+
+        AssertSuccess(response.StatusCode);
+        Assert.NotEmpty(response.Values);
+    }
+
+    [IntegrationFact]
+    public async Task Strikes_ReturnExpectedShape()
+    {
+        var response = await Client.Options.GetStrikesAsync(
             new OptionsStrikesRequest("AAPL"));
 
-        AssertSuccess(expirations.StatusCode);
-        Assert.NotEmpty(expirations.Values);
-        AssertSuccess(chain.StatusCode);
-        Assert.NotEmpty(chain.Values);
-        AssertSuccess(strikes.StatusCode);
-        Assert.NotEmpty(strikes.Values.ByExpiration);
+        AssertSuccess(response.StatusCode);
+        Assert.NotEmpty(response.Values.ByExpiration);
     }
 }

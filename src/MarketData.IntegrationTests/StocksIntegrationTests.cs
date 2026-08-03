@@ -5,22 +5,34 @@ namespace MarketData.IntegrationTests;
 public sealed class StocksIntegrationTests : IntegrationTestBase
 {
     [IntegrationFact]
-    public async Task QuoteCandlesAndCsv_ReturnExpectedShapes()
+    public async Task Quote_ReturnsExpectedShape()
     {
-        var quote = await Client.Stocks.GetQuoteAsync(new StockQuoteRequest("AAPL"));
-        var candles = await Client.Stocks.GetCandlesAsync(
+        var response = await Client.Stocks.GetQuoteAsync(new StockQuoteRequest("AAPL"));
+
+        AssertSuccess(response.StatusCode);
+        Assert.Contains(response.Values, value => value.Symbol == "AAPL");
+    }
+
+    [IntegrationFact]
+    public async Task Candles_ReturnExpectedShape()
+    {
+        var response = await Client.Stocks.GetCandlesAsync(
             new StockCandlesRequest(StockResolution.Daily, "AAPL")
             {
                 To = DateOnly.FromDateTime(DateTime.UtcNow),
                 Countback = 5
             });
-        var csv = await Client.Stocks.GetPriceCsvAsync(new StockPriceRequest("AAPL"));
 
-        AssertSuccess(quote.StatusCode);
-        Assert.Contains(quote.Values, value => value.Symbol == "AAPL");
-        AssertSuccess(candles.StatusCode);
-        Assert.NotEmpty(candles.Values);
-        AssertSuccess(csv.StatusCode);
-        Assert.False(string.IsNullOrWhiteSpace(csv.Csv));
+        AssertSuccess(response.StatusCode);
+        Assert.NotEmpty(response.Values);
+    }
+
+    [IntegrationFact]
+    public async Task PriceCsv_ReturnsExpectedShape()
+    {
+        var response = await Client.Stocks.GetPriceCsvAsync(new StockPriceRequest("AAPL"));
+
+        AssertSuccess(response.StatusCode);
+        Assert.False(string.IsNullOrWhiteSpace(response.Csv));
     }
 }

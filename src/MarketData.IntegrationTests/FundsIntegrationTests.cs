@@ -8,7 +8,7 @@ public sealed class FundsIntegrationTests : IntegrationTestBase
     public async Task Candles_ReturnRecentFundPrices()
     {
         var response = await Client.Funds.GetCandlesAsync(
-            new FundCandlesRequest(FundResolution.Daily, "VTI")
+            new FundCandlesRequest(FundResolution.Daily, "VFINX")
             {
                 To = DateOnly.FromDateTime(DateTime.UtcNow),
                 Countback = 5
