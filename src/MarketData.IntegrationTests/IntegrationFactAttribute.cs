@@ -2,21 +2,15 @@ namespace MarketData.IntegrationTests;
 
 internal sealed class IntegrationFactAttribute : FactAttribute
 {
-    private const string EnabledVariable = "MARKETDATA_RUN_INTEGRATION_TESTS";
-    private const string TokenVariable = "MARKETDATA_TOKEN";
-
     public IntegrationFactAttribute()
     {
-        if (!string.Equals(
-                Environment.GetEnvironmentVariable(EnabledVariable),
-                "true",
-                StringComparison.OrdinalIgnoreCase))
+        if (!IntegrationTestConfiguration.Enabled)
         {
-            Skip = $"Set {EnabledVariable}=true to run live integration tests.";
+            Skip = "Configure MarketDataIntegrationTests:Enabled=true to run live integration tests.";
         }
-        else if (string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable(TokenVariable)))
+        else if (string.IsNullOrWhiteSpace(IntegrationTestConfiguration.ApiToken))
         {
-            Skip = $"Set {TokenVariable} to run live integration tests.";
+            Skip = "Configure MarketData:ApiToken to run live integration tests.";
         }
     }
 }

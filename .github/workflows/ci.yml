@@ -8,7 +8,7 @@ on:
   workflow_dispatch:
     inputs:
       run_integration_tests:
-        description: Run live integration tests (requires MARKETDATA_TOKEN secret)
+        description: Run live integration tests (requires MARKETDATA_TOKEN user secret)
         type: boolean
         default: false
 
@@ -77,12 +77,12 @@ jobs:
     name: Integration Tests (live)
     # Only runs when explicitly dispatched with the checkbox enabled.
     # The IntegrationFactAttribute guard inside the tests also skips individual
-    # tests when MARKETDATA_TOKEN or MARKETDATA_RUN_INTEGRATION_TESTS is absent.
+    # tests when MarketData:ApiToken or MarketDataIntegrationTests:Enabled is absent.
     if: github.event_name == 'workflow_dispatch' && github.event.inputs.run_integration_tests == 'true'
     runs-on: ubuntu-latest
     env:
-      MARKETDATA_RUN_INTEGRATION_TESTS: "true"
-      MARKETDATA_TOKEN: ${{ secrets.MARKETDATA_TOKEN }}
+      MarketDataIntegrationTests__Enabled: "true"
+      MarketData__ApiToken: ${{ secrets.MARKETDATA_TOKEN }}
 
     steps:
       - uses: actions/checkout@v4

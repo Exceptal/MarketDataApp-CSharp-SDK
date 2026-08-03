@@ -11,7 +11,7 @@
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
 
     <!-- Package metadata -->
-    <Version>0.1.0</Version>
+    <Version>1.0.0</Version>
     <Authors>Exceptal</Authors>
     <Description>C#/.NET SDK for the MarketData.app API. Provides asynchronous access to real-time and historical financial data including stocks, options, funds, and market status.</Description>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>

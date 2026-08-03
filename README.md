@@ -69,11 +69,11 @@ dotnet add package MarketData
 using MarketData;
 using MarketData.Stocks;
 
+var builder = Host.CreateApplicationBuilder(args);
+var options = MarketDataClientOptions.FromConfiguration(builder.Configuration);
+
 using var httpClient = new HttpClient();
-var client = new MarketDataClient(httpClient, new MarketDataClientOptions
-{
-    ApiToken = Environment.GetEnvironmentVariable("MARKETDATA_TOKEN")
-});
+var client = new MarketDataClient(httpClient, options);
 
 var response = await client.Stocks.GetQuoteAsync(new StockQuoteRequest("AAPL"));
 foreach (var q in response.Values)
@@ -137,8 +137,6 @@ dotnet user-secrets set "MarketData:ApiToken" "your-api-token"
 **Environment variables (CI/CD and containers)**
 
 ```
-MARKETDATA_TOKEN=your-api-token   # loaded explicitly
-# or use the standard configuration key:
 MarketData__ApiToken=your-api-token
 ```
 
@@ -678,29 +676,37 @@ ActivitySource.AddActivityListener(listener);
 ## Integration tests
 
 The integration test project `src/MarketData.IntegrationTests` requires a live API
-token and is gated by environment variables so that it **never runs in normal CI**.
+token and uses standard .NET configuration. An environment-variable gate ensures it
+**never runs in normal CI**.
 
 ### Environment variables
 
-| Variable | Value | Description |
-|----------|-------|-------------|
-| `MARKETDATA_RUN_INTEGRATION_TESTS` | `"true"` | Must be set to enable integration tests. |
-| `MARKETDATA_TOKEN` | your token | API token for live requests. |
+| Configuration | Value | Description |
+|---------------|-------|-------------|
+| `MarketDataIntegrationTests:Enabled` | `"true"` | Safety gate that enables live tests. |
+| `MarketData:ApiToken` | your token | Standard .NET configuration key loaded from user-secrets or another provider. |
 
 ### Running locally
 
 ```powershell
-$env:MARKETDATA_RUN_INTEGRATION_TESTS = "true"
-$env:MARKETDATA_TOKEN = "your-api-token"
-dotnet test src/MarketData.IntegrationTests/MarketData.IntegrationTests.csproj
+dotnet user-secrets set "MarketData:ApiToken" "your-api-token" `
+  --project src/MarketData.IntegrationTests
+$env:MarketDataIntegrationTests__Enabled = "true"
+try {
+    dotnet test src/MarketData.IntegrationTests/MarketData.IntegrationTests.csproj
+}
+finally {
+    Remove-Item Env:MarketDataIntegrationTests__Enabled -ErrorAction SilentlyContinue
+}
 ```
 
 ### Running in CI (manual dispatch only)
 
 The `.github/workflows/ci.yml` workflow exposes a **Run live integration tests**
 checkbox that is only visible on manual workflow dispatch. When the checkbox is
-checked and the `MARKETDATA_TOKEN` repository secret is configured, the `integration`
-job is enabled. It is never triggered on push or pull request events.
+checked and the `MarketData:ApiToken` user secret is configured, the `integration`
+job maps that secret to `MarketData__ApiToken`. It is never triggered on push or pull
+request events.
 
 ---
 

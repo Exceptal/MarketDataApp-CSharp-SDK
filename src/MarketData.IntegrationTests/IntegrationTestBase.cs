@@ -8,11 +8,7 @@ public abstract class IntegrationTestBase : IDisposable
     {
         Client = new MarketDataClient(
             _httpClient,
-            new MarketDataClientOptions
-            {
-                ApiToken = Environment.GetEnvironmentVariable("MARKETDATA_TOKEN"),
-                MaxRetries = 1
-            });
+            MarketDataClientOptions.FromConfiguration(IntegrationTestConfiguration.Instance));
     }
 
     protected MarketDataClient Client { get; }
