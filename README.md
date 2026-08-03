@@ -16,16 +16,26 @@
 
 ## Features
 
+- **Async-first API**: Every endpoint is asynchronous, accepts an optional `CancellationToken`, and returns a typed response
+- **Application-owned HTTP**: Inject an existing `HttpClient`, including clients created by `IHttpClientFactory`; the SDK never disposes it
+- **Configuration Integration**: Bind options from `IConfiguration`, user-secrets, or environment variables, with explicit programmatic configuration also supported
 - **Real-time Stock Data**: Prices, quotes, candles (OHLCV), earnings, and news
 - **Options Trading Data**: Options chains, expirations, strikes, quotes, and lookup
 - **Mutual Funds**: Historical candles and pricing data
 - **Market Status**: Real-time market open/closed status for multiple countries
+- **Utilities**: Service status, request-header inspection, and authenticated-user information
 - **Multiple Output Formats**: Typed objects, JSON, or CSV
-- **Resilient Transport**: Retries transient failures with exponential backoff and honors `Retry-After`
+- **Typed Request Models**: Immutable endpoint-specific request objects validate required values and keep endpoint parameters explicit
+- **Global Request Options**: `MarketDataRequestOptions` provides shared date-format, mode, limit, offset, column, and CSV formatting controls
+- **Response Metadata**: Status codes, request URLs and IDs, raw bodies, no-data indicators, composite parts, and response-saving helpers
+- **Resilient Transport**: Per-attempt timeouts, bounded concurrency, exponential backoff with jitter, and `Retry-After` support
 - **Long Intraday Ranges**: Automatically chunks long intraday stock-candle windows and merges results
 - **Built-in Retry Logic**: Automatic retry with exponential backoff for reliable data fetching
-- **Rate Limit Tracking**: Per-response and client-level rate-limit snapshots
-- **Type-Safe**: Records, a focused exception hierarchy, and idiomatic request objects
+- **Rate Limit Tracking**: Per-response and client-level rate-limit snapshots with client-side protection
+- **Diagnostics**: `ActivitySource` tracing for manual listeners and OpenTelemetry integration
+- **File Export**: Save JSON and CSV response content synchronously or asynchronously
+- **Predictable Errors**: A focused exception hierarchy distinguishes authentication, validation, network, parsing, not-found, rate-limit, and server failures
+- **Type-Safe**: Records, typed endpoint responses, and idiomatic request objects
 - **Zero Config**: Works out of the box with sensible defaults
 
 ---
