@@ -84,6 +84,9 @@ foreach (var q in response.Values)
 
 See [`examples/QuickStart/`](examples/QuickStart/) for a full runnable example covering
 cancellation, CSV export, exception handling, and bulk quotes.
+See [`examples/McpServer/`](examples/McpServer/) for a runnable
+[Model Context Protocol](https://modelcontextprotocol.io/) server that exposes quote,
+candle, and market-status tools over stdio.
 See [`examples/WebApiSample/`](examples/WebApiSample/) for ASP.NET Core DI and
 `IHttpClientFactory` patterns. Its Development launch profile opens the AAPL stock,
 AAPL options, VFINX fund, US market-status, and rate-limit sample URLs in the browser.
