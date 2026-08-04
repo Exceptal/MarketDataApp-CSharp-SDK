@@ -1,14 +1,18 @@
 # Markets
 
 Use `client.Markets` to retrieve open/closed status for an exchange country and date
-window.
+window. Scalar parameters are convenient for common queries; use `MarketStatusRequest`
+for a reusable or advanced request.
 
-| Operation | Method | Request |
+| Operation | Simple call | Advanced request |
 |---|---|---|
-| Typed status | `GetStatusAsync` | `MarketStatusRequest` |
-| CSV status | `GetStatusCsvAsync` | `MarketStatusRequest` |
+| Typed status | `GetStatusAsync(country: "US", countback: 5)` | `MarketStatusRequest` |
+| CSV status | `GetStatusCsvAsync(country: "US", countback: 5)` | `MarketStatusRequest` |
 
 ```csharp
+var recent = await client.Markets.GetStatusAsync(country: "US", countback: 5);
+
+// Use a request object when passing a complete set of filters.
 var response = await client.Markets.GetStatusAsync(
     new MarketStatusRequest
     {
@@ -25,4 +29,3 @@ foreach (var day in response.Values)
 
 `Country` is a two-letter ISO 3166 code and defaults to `US`. Date windows use
 `Date`, `From`/`To`, or `Countback` according to the request validation rules.
-

@@ -85,7 +85,7 @@ var options = MarketDataClientOptions.FromConfiguration(builder.Configuration);
 using var httpClient = new HttpClient();
 var client = new MarketDataClient(httpClient, options);
 
-var response = await client.Stocks.GetQuoteAsync(new StockQuoteRequest("AAPL"));
+var response = await client.Stocks.GetQuoteAsync("AAPL");
 foreach (var q in response.Values)
 {
     Console.WriteLine($"{q.Symbol}: mid={q.Mid:F2}  last={q.Last:F2}  volume={q.Volume:N0}");
@@ -193,10 +193,25 @@ which is useful in unit tests.
 
 ## Request and response model
 
+### Simple endpoint calls
+
+Endpoint methods provide scalar overloads for common calls, so request records are not
+required for basic usage:
+
+```csharp
+var quote = await client.Stocks.GetQuoteAsync("AAPL");
+var candles = await client.Stocks.GetCandlesAsync(
+    StockResolution.Daily,
+    "AAPL",
+    countback: 30);
+var chain = await client.Options.GetChainAsync("AAPL");
+var status = await client.Markets.GetStatusAsync(country: "US", countback: 5);
+```
+
 ### Request objects
 
-Every endpoint accepts an immutable request record. Required fields are validated
-in the constructor; optional fields use `init`-only properties:
+Use an immutable request record when several optional filters should be grouped or reused.
+Required fields are validated in the constructor; optional fields use `init`-only properties:
 
 ```csharp
 // Required constructor argument

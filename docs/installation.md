@@ -27,7 +27,6 @@ published version.
 
 ```csharp
 using MarketData;
-using MarketData.Stocks;
 
 using var httpClient = new HttpClient();
 var client = new MarketDataClient(
@@ -35,7 +34,7 @@ var client = new MarketDataClient(
     new MarketDataClientOptions { ApiToken = "your-api-token" });
 
 var response = await client.Stocks.GetQuoteAsync(
-    new StockQuoteRequest("AAPL"),
+    "AAPL",
     cancellationToken: CancellationToken.None);
 
 foreach (var quote in response.Values)
@@ -46,4 +45,3 @@ foreach (var quote in response.Values)
 
 Do not replace `await` with `.Result` or `.Wait()`. See [client lifetime and DI](client.md)
 for ASP.NET Core registration.
-

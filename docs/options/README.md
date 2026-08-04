@@ -1,20 +1,25 @@
 # Options
 
 Use `client.Options` for option lookup, expiration, strike, quote, and chain data.
+Scalar overloads cover common calls; request objects are available for advanced filters.
 
-| Operation | Method | Request |
+| Operation | Simple call | Advanced request |
 |---|---|---|
-| Lookup | `GetLookupAsync` | `OptionsLookupRequest` |
-| Expirations | `GetExpirationsAsync` | `OptionsExpirationsRequest` |
-| Strikes | `GetStrikesAsync` | `OptionsStrikesRequest` |
-| One quote | `GetQuoteAsync` | `OptionsQuoteRequest` |
-| Multiple quotes | `GetQuotesAsync` | `OptionsQuotesRequest` |
-| Chain | `GetChainAsync` | `OptionsChainRequest` |
+| Lookup | `GetLookupAsync("AAPL 250117C00150000")` | `OptionsLookupRequest` |
+| Expirations | `GetExpirationsAsync("AAPL")` | `OptionsExpirationsRequest` |
+| Strikes | `GetStrikesAsync("AAPL")` | `OptionsStrikesRequest` |
+| One quote | `GetQuoteAsync("AAPL250117C00150000")` | `OptionsQuoteRequest` |
+| Multiple quotes | `GetQuotesAsync(["AAPL250117C00150000", "AAPL250117P00150000"])` | `OptionsQuotesRequest` |
+| Chain | `GetChainAsync("AAPL")` | `OptionsChainRequest` |
 
 Every operation has a CSV counterpart. Multiple option quotes return an
 `IReadOnlyDictionary<string, OptionsQuotesResponse>` and are fetched concurrently.
 
 ```csharp
+var quote = await client.Options.GetQuoteAsync("AAPL250117C00150000");
+var expirations = await client.Options.GetExpirationsAsync("AAPL");
+
+// Use a request object for expiration, side, and strike filters.
 var response = await client.Options.GetChainAsync(
     new OptionsChainRequest("AAPL")
     {

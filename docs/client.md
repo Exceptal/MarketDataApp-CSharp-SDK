@@ -37,7 +37,15 @@ Endpoint methods are async-only. Every endpoint accepts a `CancellationToken`:
 using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(15));
 
 var response = await client.Stocks.GetQuoteAsync(
-    new StockQuoteRequest("AAPL"),
+    "AAPL",
+    cancellationToken: timeout.Token);
+
+// Request objects remain available for grouped optional filters.
+var candles = await client.Stocks.GetCandlesAsync(
+    new StockCandlesRequest(StockResolution.Daily, "AAPL")
+    {
+        Countback = 30
+    },
     cancellationToken: timeout.Token);
 ```
 
@@ -58,4 +66,3 @@ if (client.LatestRateLimit is { } limit)
 ```
 
 Per-response metadata is available through `response.RateLimit`.
-

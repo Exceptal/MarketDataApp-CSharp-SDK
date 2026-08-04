@@ -32,10 +32,22 @@ var options = new MarketDataClientOptions
 };
 ```
 
+## Simple endpoint calls
+
+Endpoint methods support scalar parameters for common calls:
+
+```csharp
+var quote = await client.Stocks.GetQuoteAsync("AAPL");
+var candles = await client.Stocks.GetCandlesAsync(
+    StockResolution.Daily,
+    "AAPL",
+    countback: 30);
+```
+
 ## Request objects
 
-Endpoint parameters are represented by request records. Required values are constructor
-arguments; optional values use `init` properties:
+Use request records when several optional filters should be grouped or reused. Required
+values are constructor arguments; optional values use `init` properties:
 
 ```csharp
 var request = new StockCandlesRequest(StockResolution.Daily, "AAPL")
@@ -77,4 +89,3 @@ await response.SaveToFileAsync("quotes.json", cancellationToken);
 ```
 
 CSV responses expose the same text through `Values`, `Csv`, and `RawBody`.
-
