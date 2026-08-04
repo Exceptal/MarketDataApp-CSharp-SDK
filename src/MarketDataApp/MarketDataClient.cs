@@ -10,7 +10,7 @@ public sealed class MarketDataClient
     /// <summary>Creates a client using the supplied <see cref="HttpClient"/>.</summary>
     /// <param name="httpClient">HTTP client managed by the application or dependency-injection container.</param>
     /// <param name="options">Optional client configuration.</param>
-    public MarketDataClient(HttpClient httpClient, MarketDataClientOptions? options = null)
+    public MarketDataClient(HttpClient? httpClient = null, MarketDataClientOptions? options = null)
     {
         options ??= MarketDataClientOptions.FromEnvironment();
         _apiClient = new ApiClient(httpClient, options);

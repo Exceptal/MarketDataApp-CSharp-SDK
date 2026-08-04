@@ -14,9 +14,9 @@ internal sealed class ApiClient
     private readonly SemaphoreSlim _concurrencyGate;
     private RateLimitSnapshot? _latestRateLimit;
 
-    public ApiClient(HttpClient httpClient, MarketDataClientOptions options)
+    public ApiClient(HttpClient? httpClient, MarketDataClientOptions options)
     {
-        _httpClient = httpClient ?? throw new ArgumentNullException(nameof(httpClient));
+        _httpClient = httpClient ?? new HttpClient();
         _options = options ?? throw new ArgumentNullException(nameof(options));
         if (_options.BaseAddress is null)
         {
