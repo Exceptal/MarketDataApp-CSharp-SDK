@@ -13,6 +13,11 @@ using var httpClient = new HttpClient();
 var client = new MarketDataClient(httpClient);
 ```
 
+When `options` is omitted, the client loads configuration from user secrets, an
+optional `.env` file in the current working directory, and process environment
+variables. Environment variables have the highest precedence, followed by `.env`,
+then user secrets.
+
 In ASP.NET Core, prefer `IHttpClientFactory`:
 
 ```csharp

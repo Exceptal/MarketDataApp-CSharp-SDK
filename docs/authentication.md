@@ -4,7 +4,33 @@ Most Market Data requests require an API token. Never commit a token, put it in 
 sample, or print it in logs. Use user-secrets for local development and an environment
 variable or managed secret provider in deployed applications.
 
-## .NET user-secrets
+## Configuring API token
+
+You can create a client without passing options:
+
+```csharp
+using MarketDataApp;
+
+using var httpClient = new HttpClient();
+var client = new MarketDataClient(httpClient);
+```
+
+When no options are supplied, the SDK loads `MARKETDATA_*` values from these sources:
+
+1. Environment variables (highest priority)
+2. `.env` file in the assembly's working directory
+3. .NET user secrets
+
+For example, a local `.env` file can contain:
+
+```dotenv
+MARKETDATA_TOKEN=your-api-token
+```
+
+Environment variables override values from both `.env` and user secrets. The `.env`
+file is intended for local development and should not be committed.
+
+### User secrets
 
 From an executable project:
 
@@ -12,33 +38,6 @@ From an executable project:
 dotnet user-secrets init
 dotnet user-secrets set "MARKETDATA_TOKEN" "your-api-token"
 ```
-
-Load the provider and create options:
-
-```csharp
-using MarketDataApp;
-using Microsoft.Extensions.Configuration;
-using Microsoft.Extensions.Hosting;
-
-var builder = Host.CreateApplicationBuilder(args);
-builder.Configuration.AddUserSecrets<Program>(optional: true);
-
-var options = MarketDataClientOptions.FromConfiguration(builder.Configuration);
-```
-
-The SDK does not load `.env` files automatically.
-
-## Environment variables
-
-.NET maps a double underscore to a configuration section separator:
-
-```powershell
-$env:MARKETDATA_TOKEN = "your-api-token"
-dotnet run
-```
-
-The equivalent configuration key is `MARKETDATA_TOKEN`. Other supported keys are
-`BaseAddress`, `ApiVersion`, `Timeout`, `MaxRetries`, and `MaxConcurrentRequests`.
 
 ## Explicit options
 
@@ -54,4 +53,3 @@ var options = new MarketDataClientOptions
 
 `ApiToken` may be `null` for unauthenticated/free requests, but authenticated endpoints
 can then throw `AuthenticationException`.
-

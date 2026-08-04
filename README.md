@@ -76,17 +76,10 @@ dotnet add package MarketDataApp
 ## Quick start
 
 ```csharp
-using MarketDataApp;
-using MarketDataApp.Stocks;
-
-var builder = Host.CreateApplicationBuilder(args);
-var options = MarketDataClientOptions.FromConfiguration(builder.Configuration);
-
 using var httpClient = new HttpClient();
-var client = new MarketDataClient(httpClient, options);
-
-var response = await client.Stocks.GetQuoteAsync("AAPL");
-foreach (var q in response.Values)
+var client = new MarketDataClient(httpClient);
+var quote = await client.Stocks.GetQuoteAsync("AAPL");
+foreach (var q in quote.Values)
 {
     Console.WriteLine($"{q.Symbol}: mid={q.Mid:F2}  last={q.Last:F2}  volume={q.Volume:N0}");
 }
@@ -149,6 +142,14 @@ dotnet user-secrets init
 dotnet user-secrets set "MARKETDATA_TOKEN" "your-api-token"
 ```
 
+**`.env` file (local development)**
+
+Create a `.env` file in the application's current working directory:
+
+```dotenv
+MARKETDATA_TOKEN=your-api-token
+```
+
 **Environment variables (CI/CD and containers)**
 
 ```
@@ -165,8 +166,11 @@ var options = MarketDataClientOptions.FromConfiguration(builder.Configuration);
 var client  = new MarketDataClient(httpClient, options);
 ```
 
-`FromConfiguration` reads all `MARKETDATA_*` keys from any registered configuration
-provider (user-secrets, environment variables, Azure Key Vault, etc.).
+When `MarketDataClient` is created without options, it reads `MARKETDATA_*` keys from
+user secrets, `.env`, and environment variables. Precedence is highest for
+environment variables, followed by `.env`, then user secrets. `FromConfiguration`
+continues to read keys from any configuration provider supplied by the application,
+such as user secrets, environment variables, and Azure Key Vault.
 
 ### MarketDataClientOptions reference
 

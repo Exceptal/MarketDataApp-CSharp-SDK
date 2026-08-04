@@ -14,6 +14,25 @@ keys:
 | `MARKETDATA_MAX_RETRIES` | `MaxRetries` | 3 retries |
 | `MARKETDATA_MAX_CONCURRENT_REQUESTS` | `MaxConcurrentRequests` | 50 |
 
+## Default configuration sources
+
+`new MarketDataClient(httpClient)` loads configuration automatically from the
+following sources, in increasing precedence order:
+
+1. .NET user secrets (lowest priority)
+2. An optional `.env` file in the current working directory
+3. Environment variables (highest priority)
+
+For example:
+
+```dotenv
+MARKETDATA_TOKEN=your-api-token
+MARKETDATA_BASE_URL=https://api.marketdata.app/
+```
+
+Environment variables override matching values from `.env` and user secrets. Do not
+commit `.env` files containing secrets.
+
 Advanced retry delays, jitter, `TimeProvider`, and `UserAgent` are configured
 programmatically:
 

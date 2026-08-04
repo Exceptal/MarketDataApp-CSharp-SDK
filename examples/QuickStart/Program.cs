@@ -1,177 +1,130 @@
-// QuickStart — Market Data C#/.NET SDK
+// QuickStart - Market Data C#/.NET SDK
 //
-// Demonstrates: initialization, typed calls, cancellation, CSV export, and
-// exception handling. No live network call is made unless MARKETDATA_TOKEN is configured.
-//
-// Setup (dotnet user-secrets):
-//   cd examples/QuickStart
-//   dotnet user-secrets init
-//   dotnet user-secrets set "MARKETDATA_TOKEN" "your-api-token"
-//
-// Or supply the token via an environment variable:
-//   MARKETDATA_TOKEN=your-api-token dotnet run
-//
-// Without a token the program prints the quick-start patterns but skips network calls.
+// Set MARKETDATA_TOKEN in the environment or in examples/QuickStart/.env before running.
+// The example follows the resource and common workflows demonstrated by the Java SDK examples.
 
 using MarketDataApp;
 using MarketDataApp.Exceptions;
+using MarketDataApp.Funds;
+using MarketDataApp.Markets;
+using MarketDataApp.Options;
 using MarketDataApp.Stocks;
-using Microsoft.Extensions.Configuration;
-using Microsoft.Extensions.Hosting;
 
-// ── 1. Configuration via .NET IConfiguration (user-secrets or environment) ──────
-var builder = Host.CreateApplicationBuilder(args);
-builder.Configuration
-    .AddEnvironmentVariables()         // MARKETDATA_TOKEN, etc.
-    .AddUserSecrets<Program>(optional: true); // dotnet user-secrets for local dev
-
-// Build MarketDataClientOptions from configuration.
-// Reads all MARKETDATA_* keys from any registered provider.
-var options = MarketDataClientOptions.FromConfiguration(builder.Configuration);
-
-// ── 2. Client lifetime ───────────────────────────────────────────────────────────
-// The application owns and injects HttpClient. MarketDataClient never disposes it.
-// For ASP.NET Core use IHttpClientFactory (see examples/WebApiSample).
-using var httpClient = new HttpClient();
-var client = new MarketDataClient(httpClient, options);
-
-if (options.ApiToken is null)
+var options = MarketDataClientOptions.FromEnvironment();
+if (string.IsNullOrWhiteSpace(options.ApiToken))
 {
-    Console.WriteLine("No API token found. Set MARKETDATA_TOKEN or use dotnet user-secrets.");
-    Console.WriteLine("Printing patterns only — skipping live calls.");
-    PrintPatterns();
+    Console.WriteLine("Set MARKETDATA_TOKEN in the environment, .env file or user secrets before running this example.");
     return;
 }
 
-// ── 3. Cancellation ──────────────────────────────────────────────────────────────
-using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(30));
-var cancellationToken = cts.Token;
+using var httpClient = new HttpClient();
+var client = new MarketDataClient(httpClient, options);
+using var cancellation = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+var cancellationToken = cancellation.Token;
 
-// ── 4. Typed call — single-symbol quote ─────────────────────────────────────────
 try
 {
-    Console.WriteLine("Fetching AAPL quote...");
-    var quoteResponse = await client.Stocks.GetQuoteAsync(
-        new StockQuoteRequest("AAPL"),
+    // Stocks: a single quote, a candle window, and one batched request for several symbols.
+    var quoteResponse = await client.Stocks.GetQuoteAsync("AAPL", cancellationToken: cancellationToken);
+    var quote = quoteResponse.Values.FirstOrDefault();
+    Console.WriteLine($"AAPL quote: last={quote?.Last} bid/ask={quote?.Bid}/{quote?.Ask}");
+
+    var candles = await client.Stocks.GetCandlesAsync(
+        StockResolution.Daily,
+        "MSFT",
+        countback: 5,
         cancellationToken: cancellationToken);
+    Console.WriteLine($"MSFT candles: {candles.Values.Count}");
 
-    if (quoteResponse.IsNoData)
+    var bulkQuotes = await client.Stocks.GetQuotesAsync(
+        ["AAPL", "MSFT", "GOOG"],
+        cancellationToken: cancellationToken);
+    foreach (var row in bulkQuotes.Values)
     {
-        Console.WriteLine("No data returned for AAPL.");
-    }
-    else
-    {
-        foreach (var q in quoteResponse.Values)
-        {
-            Console.WriteLine($"{q.Symbol}: mid={q.Mid:F2}  last={q.Last:F2}  volume={q.Volume:N0}");
-        }
+        Console.WriteLine($"  {row.Symbol}: mid={row.Mid}");
     }
 
-    // Rate-limit snapshot is updated after every response.
-    if (client.LatestRateLimit is { } rl)
+    // Funds and markets: typed historical NAV and market-calendar responses.
+    var fundCandles = await client.Funds.GetCandlesAsync(
+        FundResolution.Daily,
+        "VFINX",
+        countback: 5,
+        cancellationToken: cancellationToken);
+    Console.WriteLine($"VFINX NAV candles: {fundCandles.Values.Count}");
+
+    var marketStatus = await client.Markets.GetStatusAsync(
+        country: "US",
+        countback: 5,
+        cancellationToken: cancellationToken);
+    Console.WriteLine($"US market days returned: {marketStatus.Values.Count}");
+
+    // Options: list expirations, filter a chain, then quote a contract from that chain.
+    var expirations = await client.Options.GetExpirationsAsync(
+        "AAPL",
+        cancellationToken: cancellationToken);
+    Console.WriteLine($"AAPL expirations: {expirations.Values.Count}");
+
+    var chain = await client.Options.GetChainAsync(
+        "AAPL",
+        expiration: ExpirationFilter.ForDte(45),
+        strike: StrikeFilter.ForRange(150, 250),
+        side: OptionSide.Call,
+        strikeLimit: 5,
+        cancellationToken: cancellationToken);
+    Console.WriteLine($"Filtered option chain: {chain.Values.Count} contracts");
+
+    var optionSymbol = chain.Values.FirstOrDefault()?.OptionSymbol;
+    if (!string.IsNullOrWhiteSpace(optionSymbol))
     {
-        Console.WriteLine($"Rate limit: {rl.Remaining}/{rl.Limit} remaining, resets {rl.Reset:HH:mm} UTC");
+        var optionQuote = await client.Options.GetQuoteAsync(
+            optionSymbol,
+            cancellationToken: cancellationToken);
+        Console.WriteLine($"Option quote: {optionQuote.Values.FirstOrDefault()?.OptionSymbol}");
     }
+
+    // Utilities: public service status, account information, and echoed request headers.
+    var services = await client.Utilities.GetStatusAsync(cancellationToken);
+    Console.WriteLine($"API services online: {services.Values.Count(service => service.Online)}");
+
+    var user = await client.Utilities.GetUserAsync(cancellationToken);
+    Console.WriteLine($"Quota: {user.Values.RequestsRemaining}/{user.Values.RequestsLimit} remaining");
+
+    var headers = await client.Utilities.GetHeadersAsync(cancellationToken);
+    Console.WriteLine($"Headers echoed by the API: {headers.Values.Count}");
+
+    // Response metadata and CSV output.
+    Console.WriteLine($"Request {quoteResponse.RequestId ?? "(no request id)"} returned HTTP {quoteResponse.StatusCode}");
+    var csv = await client.Stocks.GetPricesCsvAsync(
+        ["AAPL", "MSFT"],
+        new MarketDataRequestOptions { Headers = true, Human = true },
+        cancellationToken);
+    var csvPath = Path.Combine(Path.GetTempPath(), "market-data-quickstart.csv");
+    await csv.SaveToFileAsync(csvPath, cancellationToken);
+    Console.WriteLine($"Saved CSV response to {csvPath}");
+    File.Delete(csvPath);
+
+    // Async fan-out: all requests share the client's retry, rate-limit, and concurrency behavior.
+    var parallelStatuses = await Task.WhenAll(
+        client.Utilities.GetStatusAsync(cancellationToken),
+        client.Utilities.GetStatusAsync(cancellationToken),
+        client.Utilities.GetStatusAsync(cancellationToken));
+    Console.WriteLine($"Completed {parallelStatuses.Length} status requests concurrently");
 }
 catch (OperationCanceledException)
 {
-    Console.Error.WriteLine("Request cancelled by the caller.");
-}
-catch (AuthenticationException ex)
-{
-    Console.Error.WriteLine($"Auth failed ({ex.StatusCode}): {ex.Message}");
-    return;
+    Console.Error.WriteLine("The request was cancelled.");
 }
 catch (RateLimitException ex)
 {
-    var wait = ex.RetryAfter is { } ra ? $", retry after {ra.TotalSeconds:F0}s" : string.Empty;
-    Console.Error.WriteLine($"Rate limited{wait}: {ex.Message}");
+    var retryAfter = ex.RetryAfter is { } delay ? $" Retry after {delay.TotalSeconds:F0}s." : string.Empty;
+    Console.Error.WriteLine($"Rate limited: {ex.Message}.{retryAfter}");
+}
+catch (AuthenticationException ex)
+{
+    Console.Error.WriteLine($"Authentication failed ({ex.StatusCode}): {ex.Message}");
 }
 catch (MarketDataException ex)
 {
-    Console.Error.WriteLine($"{ex.ExceptionType} [{ex.StatusCode}]: {ex.Message}");
+    Console.Error.WriteLine($"{ex.ExceptionType} ({ex.StatusCode}): {ex.Message}");
     Console.Error.WriteLine(ex.GetSupportInfo());
-}
-
-// ── 5. Typed call — OHLCV candles ────────────────────────────────────────────────
-try
-{
-    Console.WriteLine("\nFetching MSFT daily candles (last 5)...");
-    var candleResponse = await client.Stocks.GetCandlesAsync(
-        new StockCandlesRequest(StockResolution.Daily, "MSFT") { Countback = 5 },
-        cancellationToken: cancellationToken);
-
-    foreach (var c in candleResponse.Values)
-    {
-        Console.WriteLine($"  {c.Time:yyyy-MM-dd}  O={c.Open:F2}  H={c.High:F2}  L={c.Low:F2}  C={c.Close:F2}  V={c.Volume:N0}");
-    }
-
-    Console.WriteLine($"Composite: {candleResponse.IsComposite}  Parts: {candleResponse.Parts.Count}");
-}
-catch (MarketDataException ex)
-{
-    Console.Error.WriteLine($"Candles failed: {ex.ExceptionType} — {ex.Message}");
-}
-
-// ── 6. CSV export ────────────────────────────────────────────────────────────────
-try
-{
-    Console.WriteLine("\nFetching prices as CSV...");
-    var csvResponse = await client.Stocks.GetPricesCsvAsync(
-        new StockPricesRequest("AAPL", "MSFT", "TSLA"),
-        new MarketDataRequestOptions { Headers = true, Human = true },
-        cancellationToken);
-
-    const string outputPath = "prices.csv";
-    File.WriteAllText(outputPath, csvResponse.Csv);
-    Console.WriteLine($"Saved {csvResponse.Csv.Length} characters to {outputPath}");
-}
-catch (MarketDataException ex)
-{
-    Console.Error.WriteLine($"CSV export failed: {ex.Message}");
-}
-
-// ── 7. Bulk quotes ───────────────────────────────────────────────────────────────
-try
-{
-    Console.WriteLine("\nFetching bulk quotes for AAPL, MSFT, GOOG...");
-    var bulkResponse = await client.Stocks.GetBulkQuotesAsync(
-        new StockBulkQuotesRequest("AAPL", "MSFT", "GOOG"),
-        cancellationToken: cancellationToken);
-
-    foreach (var q in bulkResponse.Values)
-    {
-        Console.WriteLine($"  {q.Symbol}: mid={q.Mid:F2}");
-    }
-}
-catch (MarketDataException ex)
-{
-    Console.Error.WriteLine($"Bulk quotes failed: {ex.Message}");
-}
-
-Console.WriteLine("\nDone.");
-return;
-
-static void PrintPatterns()
-{
-    Console.WriteLine("""
-
-    ── Initialization ───────────────────────────────────────────────────────────
-    using var httpClient = new HttpClient();
-    var options = new MarketDataClientOptions { ApiToken = "..." };
-    var client = new MarketDataClient(httpClient, options);
-
-    ── Typed call ───────────────────────────────────────────────────────────────
-    var quote = await client.Stocks.GetQuoteAsync(new StockQuoteRequest("AAPL"), cancellationToken: ct);
-
-    ── CSV export ───────────────────────────────────────────────────────────────
-    var csv = await client.Stocks.GetPricesCsvAsync(new StockPricesRequest("AAPL", "MSFT"));
-    File.WriteAllText("prices.csv", csv.Csv);
-
-    ── Exception handling ───────────────────────────────────────────────────────
-    catch (RateLimitException ex) { /* ex.RetryAfter */ }
-    catch (AuthenticationException ex) { /* 401/403 */ }
-    catch (MarketDataException ex) { Console.Error.WriteLine(ex.GetSupportInfo()); }
-
-    """);
 }

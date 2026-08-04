@@ -1,4 +1,3 @@
-using DotNetEnv;
 using DotNetEnv.Configuration;
 using Microsoft.Extensions.Configuration;
 using System.Globalization;
@@ -36,11 +35,21 @@ public sealed record MarketDataClientOptions
     /// <summary>User-agent value sent by the client.</summary>
     public string UserAgent { get; init; } = DefaultUserAgentValue;
 
-    /// <summary>Loads MARKETDATA_* values from .env and process environment variables.</summary>
+    /// <summary>
+    /// Loads MARKETDATA_* values from user secrets, an optional .env file, and process
+    /// environment variables, in increasing precedence order.
+    /// </summary>
     public static MarketDataClientOptions FromEnvironment()
     {
-        var configuration = new ConfigurationBuilder()
-            .AddDotNetEnv(".env", new DotNetEnv.LoadOptions(clobberExistingVars: false))
+        var builder = new ConfigurationBuilder()
+            .AddUserSecrets<MarketDataClientOptions>(optional: true);
+
+        if (File.Exists(".env"))
+        {
+            builder.AddDotNetEnv(".env", new DotNetEnv.LoadOptions(clobberExistingVars: false));
+        }
+
+        var configuration = builder
             .AddEnvironmentVariables()
             .Build();
         return FromConfiguration(configuration);
