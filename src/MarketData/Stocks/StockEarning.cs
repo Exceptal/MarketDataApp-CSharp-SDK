@@ -24,8 +24,8 @@ public record StockEarning(
     DateTimeOffset? ReportDate,
     string? ReportTime,
     string? Currency,
-    double? ReportedEps,
-    double? EstimatedEps,
-    double? SurpriseEps,
+    decimal? ReportedEps,
+    decimal? EstimatedEps,
+    decimal? SurpriseEps,
     double? SurpriseEpsPct,
     DateTimeOffset? Updated);

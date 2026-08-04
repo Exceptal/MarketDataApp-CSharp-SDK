@@ -58,6 +58,7 @@ coverage*.json
 appsettings.Development.json
 secrets.json
 *.userprefs
+.env
 
 # OS files
 Thumbs.db

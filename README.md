@@ -146,13 +146,13 @@ Never commit secrets to source control. Preferred patterns:
 
 ```powershell
 dotnet user-secrets init
-dotnet user-secrets set "MarketData:ApiToken" "your-api-token"
+dotnet user-secrets set "MARKETDATA_TOKEN" "your-api-token"
 ```
 
 **Environment variables (CI/CD and containers)**
 
 ```
-MarketData__ApiToken=your-api-token
+MARKETDATA_TOKEN=your-api-token
 ```
 
 ### Loading configuration
@@ -165,26 +165,26 @@ var options = MarketDataClientOptions.FromConfiguration(builder.Configuration);
 var client  = new MarketDataClient(httpClient, options);
 ```
 
-`FromConfiguration` reads all `MarketData:*` keys from any registered configuration
+`FromConfiguration` reads all `MARKETDATA_*` keys from any registered configuration
 provider (user-secrets, environment variables, Azure Key Vault, etc.).
 
 ### MarketDataClientOptions reference
 
 | Configuration key                     | Property                | Default            | Description |
 |---------------------------------------|-------------------------|--------------------|-------------|
-| `MarketData:ApiToken`                 | `ApiToken`              | `null`             | Bearer token for authenticated requests. |
-| `MarketData:BaseAddress`              | `BaseAddress`           | `https://api.marketdata.app/` | API base URI. |
-| `MarketData:ApiVersion`               | `ApiVersion`            | `"v1"`             | Version path segment for versioned endpoints. |
-| `MarketData:Timeout`                  | `Timeout`               | `00:01:39` (99 s)  | Per-attempt HTTP timeout. Independently applied to each retry attempt. |
-| `MarketData:MaxRetries`               | `MaxRetries`            | `3`                | Retry attempts *after* the original request. Maximum of 4 total attempts. |
-| `MarketData:RetryBaseDelay`           | `RetryBaseDelay`        | `00:00:00.250`     | Starting exponential backoff delay. |
-| `MarketData:RetryMaxDelay`            | `RetryMaxDelay`         | `00:00:30`         | Exponential backoff cap (no `Retry-After`). |
-| `MarketData:MaxRetryAfter`            | `MaxRetryAfter`         | `00:10:00`         | Maximum server-supplied `Retry-After` delay honored automatically. |
-| `MarketData:RetryJitterFactor`        | `RetryJitterFactor`     | `0.2`              | Fractional random jitter in `[0, 1]` applied to backoff delays. |
-| `MarketData:MaxConcurrentRequests`    | `MaxConcurrentRequests` | `50`               | Maximum in-flight HTTP requests at one time (semaphore-guarded). |
-| `MarketData:UserAgent`                | `UserAgent`             | `marketdata-sdk-csharp/{version}` | `User-Agent` header value. |
+| `MARKETDATA_TOKEN`                 | `ApiToken`              | `null`             | Bearer token for authenticated requests. |
+| `MARKETDATA_BASE_URL`              | `BaseAddress`           | `https://api.marketdata.app/` | API base URI. |
+| `MARKETDATA_API_VERSION`               | `ApiVersion`            | `"v1"`             | Version path segment for versioned endpoints. |
+| `MARKETDATA_TIMEOUT`                  | `Timeout`               | `00:01:39` (99 s)  | Per-attempt HTTP timeout. Independently applied to each retry attempt. |
+| `MARKETDATA_MAX_RETRIES`               | `MaxRetries`            | `3`                | Retry attempts *after* the original request. Maximum of 4 total attempts. |
+| `MARKETDATA_RETRY_BASE_DELAY`           | `RetryBaseDelay`         | `00:00:01`         | Starting exponential backoff delay. |
+| `MARKETDATA_RETRY_MAX_DELAY`            | `RetryMaxDelay`         | `00:00:30`         | Exponential backoff cap (no `Retry-After`). |
+| `MARKETDATA_MAX_RETRY_AFTER`            | `MaxRetryAfter`         | `00:10:00`         | Maximum server-supplied `Retry-After` delay honored automatically. |
+| `MARKETDATA_RETRY_JITTER_FACTOR`        | `RetryJitterFactor`     | `0`                | Random variation in `[0, 1]` added to delays to prevent many clients retrying simultaneously. |
+| `MARKETDATA_MAX_CONCURRENT_REQUESTS`    | `MaxConcurrentRequests` | `50`               | Maximum in-flight HTTP requests at one time (semaphore-guarded). |
+| `MARKETDATA_USER_AGENT`                | `UserAgent`             | `marketdata-sdk-csharp/{version}` | `User-Agent` header value. |
 
-All listed `MarketData:*` keys, including retry tuning, `MaxConcurrentRequests`, and
+All listed `MARKETDATA_*` keys, including retry tuning, `MaxConcurrentRequests`, and
 `UserAgent`, are supported by `FromConfiguration`. `TimeProvider` is not configurable
 via `IConfiguration`; pass it directly to the constructor to replace the system clock,
 which is useful in unit tests.
@@ -700,20 +700,20 @@ token and uses standard .NET configuration. An environment-variable gate ensures
 
 | Configuration | Value | Description |
 |---------------|-------|-------------|
-| `MarketDataIntegrationTests:Enabled` | `"true"` | Safety gate that enables live tests. |
-| `MarketData:ApiToken` | your token | Standard .NET configuration key loaded from user-secrets or another provider. |
+| `MARKETDATA_RUN_INTEGRATION_TESTS` | `"true"` | Safety gate that enables live tests. |
+| `MARKETDATA_TOKEN` | your token | Standard .NET configuration key loaded from user-secrets or another provider. |
 
 ### Running locally
 
 ```powershell
-dotnet user-secrets set "MarketData:ApiToken" "your-api-token" `
+dotnet user-secrets set "MARKETDATA_TOKEN" "your-api-token" `
   --project src/MarketData.IntegrationTests
-$env:MarketDataIntegrationTests__Enabled = "true"
+$env:MARKETDATA_RUN_INTEGRATION_TESTS = "true"
 try {
     dotnet test src/MarketData.IntegrationTests/MarketData.IntegrationTests.csproj
 }
 finally {
-    Remove-Item Env:MarketDataIntegrationTests__Enabled -ErrorAction SilentlyContinue
+    Remove-Item Env:MARKETDATA_RUN_INTEGRATION_TESTS -ErrorAction SilentlyContinue
 }
 ```
 
@@ -721,8 +721,8 @@ finally {
 
 The `.github/workflows/ci.yml` workflow exposes a **Run live integration tests**
 checkbox that is only visible on manual workflow dispatch. When the checkbox is
-checked and the `MarketData:ApiToken` user secret is configured, the `integration`
-job maps that secret to `MarketData__ApiToken`. It is never triggered on push or pull
+checked and the `MARKETDATA_TOKEN` user secret is configured, the `integration`
+job maps that secret to `MARKETDATA_TOKEN`. It is never triggered on push or pull
 request events.
 
 ---

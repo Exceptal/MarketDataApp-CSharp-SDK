@@ -39,4 +39,17 @@ public sealed class MarketsApiTests
         Assert.Contains("dateformat=timestamp", uri.Query);
         Assert.Contains("limit=10", uri.Query);
     }
+
+    [Fact]
+    public async Task GetStatusAsync_ScalarOverloadBuildsRequest()
+    {
+        var handler = new StubHttpMessageHandler(_ => MarketDataTestClient.JsonResponse("""{"s":"ok","date":[],"status":[]}"""));
+        var client = MarketDataTestClient.Create(handler);
+
+        await client.Markets.GetStatusAsync(country: "US", date: new DateOnly(2027, 1, 2));
+
+        Assert.Contains("country=US", handler.LastRequest!.RequestUri!.Query);
+        Assert.Contains("date=2027-01-02", handler.LastRequest.RequestUri.Query);
+    }
+
 }

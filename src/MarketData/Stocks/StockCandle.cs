@@ -13,8 +13,8 @@ namespace MarketData.Stocks;
 /// <param name="Volume">Volume traded (wire field: <c>v</c>).</param>
 public record StockCandle(
     DateTimeOffset? Time,
-    double? Open,
-    double? High,
-    double? Low,
-    double? Close,
+    decimal? Open,
+    decimal? High,
+    decimal? Low,
+    decimal? Close,
     long? Volume);

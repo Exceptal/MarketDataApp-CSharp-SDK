@@ -36,7 +36,7 @@ public sealed class FundsApiTests
                 Columns = ["t", "c"]
             });
 
-        Assert.Equal(101.0, response.Values[0].Close);
+        Assert.Equal(101.0m, response.Values[0].Close);
         Assert.Equal("Bearer", handler.LastRequest!.Headers.Authorization!.Scheme);
         Assert.Equal("/v1/funds/candles/D/VTI/", handler.LastRequest.RequestUri!.AbsolutePath);
         Assert.Contains("to=2024-02-02", handler.LastRequest.RequestUri.Query);
@@ -66,8 +66,20 @@ public sealed class FundsApiTests
                 Date = new DateOnly(2024, 2, 1)
             });
 
-        Assert.Equal(101.0, response.Values[0].Close);
+        Assert.Equal(101.0m, response.Values[0].Close);
         Assert.Equal("/v1/funds/candles/3M/VXUS/", handler.LastRequest!.RequestUri!.AbsolutePath);
         Assert.Contains("date=2024-02-01", handler.LastRequest.RequestUri.Query);
     }
+
+    [Fact]
+    public async Task GetCandlesAsync_ScalarOverloadBuildsRequest()
+    {
+        var handler = new StubHttpMessageHandler(_ => MarketDataTestClient.JsonResponse("""{"s":"ok","t":[],"o":[],"h":[],"l":[],"c":[]}"""));
+        var client = MarketDataTestClient.Create(handler);
+
+        await client.Funds.GetCandlesAsync(FundResolution.Daily, "SPY", countback: 5);
+
+        Assert.Contains("countback=5", handler.LastRequest!.RequestUri!.Query);
+    }
+
 }

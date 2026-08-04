@@ -5,4 +5,4 @@ namespace MarketData.Options;
 /// <param name="ByExpiration">Strike prices keyed by expiration date.</param>
 public sealed record OptionStrikes(
     DateTimeOffset? Updated,
-    IReadOnlyDictionary<DateOnly, IReadOnlyList<double>> ByExpiration);
+    IReadOnlyDictionary<DateOnly, IReadOnlyList<decimal>> ByExpiration);

@@ -10,17 +10,17 @@ public sealed class MarketDataClientOptionsTests
     {
         var configuration = Configuration(new Dictionary<string, string?>
         {
-            ["MarketData:ApiToken"] = "token",
-            ["MarketData:BaseAddress"] = "https://example.test/api/",
-            ["MarketData:ApiVersion"] = "v2",
-            ["MarketData:Timeout"] = "00:00:05",
-            ["MarketData:MaxRetries"] = "4",
-            ["MarketData:RetryBaseDelay"] = "00:00:00.100",
-            ["MarketData:RetryMaxDelay"] = "00:00:10",
-            ["MarketData:MaxRetryAfter"] = "00:02:00",
-            ["MarketData:RetryJitterFactor"] = "0.1",
-            ["MarketData:MaxConcurrentRequests"] = "12",
-            ["MarketData:UserAgent"] = "test-client/1.0"
+            ["MARKETDATA_TOKEN"] = "token",
+            ["MARKETDATA_BASE_URL"] = "https://example.test/api/",
+            ["MARKETDATA_API_VERSION"] = "v2",
+            ["MARKETDATA_TIMEOUT"] = "00:00:05",
+            ["MARKETDATA_MAX_RETRIES"] = "4",
+            ["MARKETDATA_RETRY_BASE_DELAY"] = "00:00:00.100",
+            ["MARKETDATA_RETRY_MAX_DELAY"] = "00:00:10",
+            ["MARKETDATA_MAX_RETRY_AFTER"] = "00:02:00",
+            ["MARKETDATA_RETRY_JITTER_FACTOR"] = "0.1",
+            ["MARKETDATA_MAX_CONCURRENT_REQUESTS"] = "12",
+            ["MARKETDATA_USER_AGENT"] = "test-client/1.0"
         });
 
         var options = MarketDataClientOptions.FromConfiguration(configuration);
@@ -43,13 +43,13 @@ public sealed class MarketDataClientOptionsTests
     {
         var configuration = Configuration(new Dictionary<string, string?>
         {
-            ["MarketData:MaxRetries"] = "many"
+            ["MARKETDATA_MAX_RETRIES"] = "many"
         });
 
         var exception = Assert.Throws<FormatException>(
             () => MarketDataClientOptions.FromConfiguration(configuration));
 
-        Assert.Contains("MarketData:MaxRetries", exception.Message);
+        Assert.Contains("MARKETDATA_MAX_RETRIES", exception.Message);
     }
 
     [Fact]
@@ -58,8 +58,8 @@ public sealed class MarketDataClientOptionsTests
         var options = MarketDataClientOptions.FromConfiguration(Configuration(
             new Dictionary<string, string?>
             {
-                ["MarketData:RetryBaseDelay"] = "00:00:10",
-                ["MarketData:RetryMaxDelay"] = "00:00:01"
+                ["MARKETDATA_RETRY_BASE_DELAY"] = "00:00:10",
+                ["MARKETDATA_RETRY_MAX_DELAY"] = "00:00:01"
             }));
         using var handler = new StubHttpMessageHandler(_ => throw new InvalidOperationException());
 
@@ -72,12 +72,12 @@ public sealed class MarketDataClientOptionsTests
         var options = MarketDataClientOptions.FromConfiguration(Configuration(
             new Dictionary<string, string?>
             {
-                ["MarketData:RetryBaseDelay"] = "00:00:00.100",
-                ["MarketData:RetryMaxDelay"] = "00:00:10",
-                ["MarketData:MaxRetryAfter"] = "00:02:00",
-                ["MarketData:RetryJitterFactor"] = "0.1",
-                ["MarketData:MaxConcurrentRequests"] = "12",
-                ["MarketData:UserAgent"] = "test-client/1.0"
+                ["MARKETDATA_RETRY_BASE_DELAY"] = "00:00:00.100",
+                ["MARKETDATA_RETRY_MAX_DELAY"] = "00:00:10",
+                ["MARKETDATA_MAX_RETRY_AFTER"] = "00:02:00",
+                ["MARKETDATA_RETRY_JITTER_FACTOR"] = "0.1",
+                ["MARKETDATA_MAX_CONCURRENT_REQUESTS"] = "12",
+                ["MARKETDATA_USER_AGENT"] = "test-client/1.0"
             }));
 
         Assert.Equal(TimeSpan.FromMilliseconds(100), options.RetryBaseDelay);

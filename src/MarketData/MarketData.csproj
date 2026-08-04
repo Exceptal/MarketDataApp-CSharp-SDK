@@ -7,6 +7,7 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <RootNamespace>MarketData</RootNamespace>
     <AssemblyName>MarketData</AssemblyName>
+    <UserSecretsId>ffbff63c-6a0f-451d-94a2-71dc2cdd91f9</UserSecretsId>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
 
@@ -41,9 +42,18 @@
   </ItemGroup>
 
   <ItemGroup>
+    <PackageReference Include="DotNetEnv" Version="3.2.0" />
+    <PackageReference Include="Microsoft.Extensions.Configuration" Version="10.0.10" />
     <PackageReference Include="Microsoft.Extensions.Configuration.Abstractions" Version="10.0.10" />
+    <PackageReference Include="Microsoft.Extensions.Configuration.EnvironmentVariables" Version="10.0.10" />
     <!-- Source Link: embeds source file URIs in the PDB for debugger step-through -->
     <PackageReference Include="Microsoft.SourceLink.GitHub" Version="8.0.0" PrivateAssets="All" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Update=".env.example">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
   </ItemGroup>
 
 </Project>

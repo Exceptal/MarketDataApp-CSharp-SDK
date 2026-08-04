@@ -3,7 +3,7 @@
 // Setup:
 //   cd examples/McpServer
 //   dotnet user-secrets init
-//   dotnet user-secrets set "MarketData:ApiToken" "your-api-token"
+//   dotnet user-secrets set "MARKETDATA_TOKEN" "your-api-token"
 //   dotnet run
 //
 // MCP clients should launch this project and communicate over standard input/output.

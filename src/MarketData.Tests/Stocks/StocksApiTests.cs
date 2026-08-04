@@ -24,7 +24,7 @@ public sealed class StocksApiTests
             new MarketDataRequestOptions { Mode = Mode.Live });
 
         Assert.Equal("AAPL", response.Values[0].Symbol);
-        Assert.Equal(190.25, response.Values[0].Last);
+        Assert.Equal(190.25m, response.Values[0].Last);
         Assert.Equal("Bearer secret-token", handler.LastRequest!.Headers.Authorization!.ToString());
         Assert.Equal("/v1/stocks/quotes/AAPL/", handler.LastRequest.RequestUri!.AbsolutePath);
         Assert.Contains("candle=true", handler.LastRequest.RequestUri.Query);
@@ -98,7 +98,7 @@ public sealed class StocksApiTests
                 AdjustSplits = true
             });
 
-        Assert.Equal(190.25, response.Values[0].Close);
+        Assert.Equal(190.25m, response.Values[0].Close);
         Assert.Equal("/v1/stocks/candles/D/AAPL/", handler.LastRequest!.RequestUri!.AbsolutePath);
         Assert.Contains("adjustsplits=true", handler.LastRequest.RequestUri.Query);
     }
@@ -258,7 +258,7 @@ public sealed class StocksApiTests
             new StockEarningsRequest("AAPL") { Report = "2024-Q4" });
 
         Assert.Equal(2024, response.Values[0].FiscalYear);
-        Assert.Equal(1.64, response.Values[0].ReportedEps);
+        Assert.Equal(1.64m, response.Values[0].ReportedEps);
         Assert.Contains("report=2024-Q4", handler.LastRequest!.RequestUri!.Query);
     }
 
@@ -277,7 +277,7 @@ public sealed class StocksApiTests
 
         var response = await client.Stocks.GetPriceAsync(new StockPriceRequest("AAPL"));
 
-        Assert.Equal(190.25, response.Values[0].Mid);
+        Assert.Equal(190.25m, response.Values[0].Mid);
         Assert.Equal("/v1/stocks/prices/AAPL/", handler.LastRequest!.RequestUri!.AbsolutePath);
     }
 
@@ -302,4 +302,16 @@ public sealed class StocksApiTests
         Assert.Contains("symbols=AAPL%2CMSFT", handler.LastRequest.RequestUri.Query);
         Assert.Contains("extended=true", handler.LastRequest.RequestUri.Query);
     }
+
+    [Fact]
+    public async Task GetQuoteAsync_ScalarOverloadBuildsRequest()
+    {
+        var handler = new StubHttpMessageHandler(_ => MarketDataTestClient.JsonResponse("""{"s":"ok","symbol":["AAPL"],"last":[190.25]}"""));
+        var client = MarketDataTestClient.Create(handler);
+
+        await client.Stocks.GetQuoteAsync("AAPL", candle: true);
+
+        Assert.Contains("candle=true", handler.LastRequest!.RequestUri!.Query);
+    }
+
 }

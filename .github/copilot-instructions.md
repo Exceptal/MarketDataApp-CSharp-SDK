@@ -43,7 +43,7 @@ Notes:
 - Response creation: use JsonResponseParser.CreateResponse / CreateCsvResponse so RawBodyBytes and metadata are populated consistently.
 - No global mutable state: ApiClient exposes the last-seen rate limit via `MarketDataClient.LatestRateLimit` (read-only snapshot).
 - Request objects validate inputs in constructors (throw on empty symbols/nulls). Maintain that pattern when adding new requests.
-- When modifying transport behavior, preserve ApiClient's retry/backoff and use `MarketDataClientOptions` for configuration. Default config reads from `MarketData:ApiToken`, `MarketData:BaseAddress`, `MarketData:ApiVersion`, `MarketData:UserAgent` when using `FromConfiguration`.
+- When modifying transport behavior, preserve ApiClient's retry/backoff and use `MarketDataClientOptions` for configuration. Default config reads from `MARKETDATA_TOKEN`, `MARKETDATA_BASE_URL`, `MARKETDATA_API_VERSION`, `MARKETDATA_USER_AGENT` when using `FromConfiguration`.
 - Tests avoid real network calls: prefer injecting a StubHttpMessageHandler or mocking HttpClient. Do not add tests that hit `api.marketdata.app`.
 
 ---

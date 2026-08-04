@@ -6,11 +6,11 @@ internal sealed class IntegrationFactAttribute : FactAttribute
     {
         if (!IntegrationTestConfiguration.Enabled)
         {
-            Skip = "Configure MarketDataIntegrationTests:Enabled=true to run live integration tests.";
+            Skip = "Configure MARKETDATA_RUN_INTEGRATION_TESTS=true to run live integration tests.";
         }
         else if (string.IsNullOrWhiteSpace(IntegrationTestConfiguration.ApiToken))
         {
-            Skip = "Configure MarketData:ApiToken to run live integration tests.";
+            Skip = "Configure MARKETDATA_TOKEN to run live integration tests.";
         }
     }
 }

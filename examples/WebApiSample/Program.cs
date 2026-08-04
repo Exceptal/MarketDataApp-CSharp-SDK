@@ -9,7 +9,7 @@
 // Setup:
 //   cd examples/WebApiSample
 //   dotnet user-secrets init
-//   dotnet user-secrets set "MarketData:ApiToken" "your-api-token"
+//   dotnet user-secrets set "MARKETDATA_TOKEN" "your-api-token"
 //   dotnet run
 
 using System.ComponentModel;
@@ -25,7 +25,7 @@ using Microsoft.AspNetCore.Hosting.Server.Features;
 var builder = WebApplication.CreateBuilder(args);
 
 // ── Configuration ────────────────────────────────────────────────────────────────
-// In production, supply MarketData:ApiToken through environment variables or a
+// In production, supply MARKETDATA_TOKEN through environment variables or a
 // secrets manager — never store the token in appsettings.json.
 builder.Configuration.AddUserSecrets<Program>(optional: true);
 
@@ -41,11 +41,11 @@ builder.Services.AddSingleton<MarketDataClient>(sp =>
     var factory = sp.GetRequiredService<IHttpClientFactory>();
     var config = sp.GetRequiredService<IConfiguration>();
 
-    // FromConfiguration reads all MarketData:* keys:
-    //   MarketData:ApiToken, MarketData:BaseAddress, MarketData:Timeout,
-    //   MarketData:MaxRetries, MarketData:RetryBaseDelay, MarketData:RetryMaxDelay,
-    //   MarketData:MaxRetryAfter, MarketData:RetryJitterFactor,
-    //   MarketData:MaxConcurrentRequests, MarketData:ApiVersion, MarketData:UserAgent
+    // FromConfiguration reads all MARKETDATA_* keys:
+    //   MARKETDATA_TOKEN, MARKETDATA_BASE_URL, MARKETDATA_TIMEOUT,
+    //   MARKETDATA_MAX_RETRIES, MARKETDATA_RETRY_BASE_DELAY, MARKETDATA_RETRY_MAX_DELAY,
+    //   MARKETDATA_MAX_RETRY_AFTER, MARKETDATA_RETRY_JITTER_FACTOR,
+    //   MARKETDATA_MAX_CONCURRENT_REQUESTS, MARKETDATA_API_VERSION, MARKETDATA_USER_AGENT
     var options = MarketDataClientOptions.FromConfiguration(config);
     return new MarketDataClient(factory.CreateClient("MarketData"), options);
 });

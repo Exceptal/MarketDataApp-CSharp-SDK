@@ -53,7 +53,7 @@ public sealed class ApiClientTests
         var response = await client.Stocks.GetQuoteAsync(new StockQuoteRequest("AAPL"));
 
         Assert.Equal(3, attempts);
-        Assert.Equal(190.25, response.Values[0].Last);
+        Assert.Equal(190.25m, response.Values[0].Last);
     }
 
     [Fact]

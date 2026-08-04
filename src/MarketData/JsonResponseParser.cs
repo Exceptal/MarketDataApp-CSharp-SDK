@@ -69,6 +69,9 @@ internal static class JsonResponseParser
         public double? Double(string name) => Value(name) is { } value && value.ValueKind == JsonValueKind.Number
             && value.TryGetDouble(out var result) ? result : null;
 
+        public decimal? Decimal(string name) => Value(name) is { } value && value.ValueKind == JsonValueKind.Number
+            && value.TryGetDecimal(out var result) ? result : null;
+
         public long? Long(string name) => Value(name) is { } value && value.ValueKind == JsonValueKind.Number
             && value.TryGetInt64(out var result) ? result : null;
 

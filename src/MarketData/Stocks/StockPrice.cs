@@ -8,7 +8,7 @@ namespace MarketData.Stocks;
 /// <param name="Updated">Timestamp of the price (America/New_York).</param>
 public record StockPrice(
     string? Symbol,
-    double? Mid,
-    double? Change,
+    decimal? Mid,
+    decimal? Change,
     double? ChangePct,
     DateTimeOffset? Updated);

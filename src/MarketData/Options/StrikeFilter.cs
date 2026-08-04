@@ -11,13 +11,13 @@ public abstract record StrikeFilter
     internal StrikeFilter() { }
 
     /// <summary>Exactly one strike price.</summary>
-    public sealed record Exact(double Price) : StrikeFilter;
+    public sealed record Exact(decimal Price) : StrikeFilter;
 
     /// <summary>Strikes within an inclusive price range.</summary>
-    public sealed record Range(double Min, double Max) : StrikeFilter;
+    public sealed record Range(decimal Min, decimal Max) : StrikeFilter;
 
     /// <summary>Strikes satisfying a comparison against a threshold price.</summary>
-    public sealed record Comparison(StrikeFilter.ComparisonOperator Op, double Price) : StrikeFilter;
+    public sealed record Comparison(StrikeFilter.ComparisonOperator Op, decimal Price) : StrikeFilter;
 
     /// <summary>Comparison operators for <see cref="Comparison"/> strike filters.</summary>
     public enum ComparisonOperator
@@ -38,17 +38,17 @@ public abstract record StrikeFilter
     // ── Static factory helpers ──────────────────────────────────────────────
 
     /// <inheritdoc cref="Exact"/>
-    public static StrikeFilter ForExact(double price) => new Exact(price);
+    public static StrikeFilter ForExact(decimal price) => new Exact(price);
 
     /// <inheritdoc cref="Range"/>
-    public static StrikeFilter ForRange(double min, double max)
+    public static StrikeFilter ForRange(decimal min, decimal max)
     {
         if (min > max) throw new ArgumentException($"'{nameof(min)}' must be less than or equal to '{nameof(max)}'.");
         return new Range(min, max);
     }
 
     /// <inheritdoc cref="Comparison"/>
-    public static StrikeFilter ForComparison(ComparisonOperator op, double price) => new Comparison(op, price);
+    public static StrikeFilter ForComparison(ComparisonOperator op, decimal price) => new Comparison(op, price);
 }
 
 internal static class StrikeFilterExtensions

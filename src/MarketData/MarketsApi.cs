@@ -11,6 +11,10 @@ public sealed class MarketsApi
     internal MarketsApi(ApiClient apiClient) => _apiClient = apiClient;
 
     /// <summary>Gets exchange open/closed status for the requested dates.</summary>
+    public Task<MarketStatusResponse> GetStatusAsync(string? country = null, DateOnly? date = null, DateOnly? from = null, DateOnly? to = null, int? countback = null, MarketDataRequestOptions? options = null, CancellationToken cancellationToken = default) =>
+        GetStatusAsync(new MarketStatusRequest { Country = country, Date = date, From = from, To = to, Countback = countback }, options, cancellationToken);
+
+    /// <summary>Executes the endpoint request.</summary>
     public async Task<MarketStatusResponse> GetStatusAsync(
         MarketStatusRequest request,
         MarketDataRequestOptions? options = null,
@@ -36,6 +40,10 @@ public sealed class MarketsApi
     }
 
     /// <summary>Gets exchange open/closed status as CSV.</summary>
+    public Task<CsvResponse> GetStatusCsvAsync(string? country = null, DateOnly? date = null, DateOnly? from = null, DateOnly? to = null, int? countback = null, MarketDataRequestOptions? options = null, CancellationToken cancellationToken = default) =>
+        GetStatusCsvAsync(new MarketStatusRequest { Country = country, Date = date, From = from, To = to, Countback = countback }, options, cancellationToken);
+
+    /// <summary>Executes the endpoint request.</summary>
     public async Task<CsvResponse> GetStatusCsvAsync(
         MarketStatusRequest request,
         MarketDataRequestOptions? options = null,

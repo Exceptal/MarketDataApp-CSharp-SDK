@@ -10,6 +10,10 @@ public sealed class FundsApi
     internal FundsApi(ApiClient apiClient) => _apiClient = apiClient;
 
     /// <summary>Gets OHLC candles for a fund or ETF symbol.</summary>
+    public Task<FundCandlesResponse> GetCandlesAsync(FundResolution resolution, string symbol, DateOnly? date = null, DateOnly? from = null, DateOnly? to = null, int? countback = null, MarketDataRequestOptions? options = null, CancellationToken cancellationToken = default) =>
+        GetCandlesAsync(new FundCandlesRequest(resolution, symbol) { Date = date, From = from, To = to, Countback = countback }, options, cancellationToken);
+
+    /// <summary>Executes the endpoint request.</summary>
     public async Task<FundCandlesResponse> GetCandlesAsync(
         FundCandlesRequest request,
         MarketDataRequestOptions? options = null,
@@ -31,10 +35,10 @@ public sealed class FundsApi
                 root,
                 row => new FundCandle(
                     row.Timestamp("t"),
-                    row.Double("o"),
-                    row.Double("h"),
-                    row.Double("l"),
-                    row.Double("c")),
+                    row.Decimal("o"),
+                    row.Decimal("h"),
+                    row.Decimal("l"),
+                    row.Decimal("c")),
                 "t", "o", "h", "l", "c"),
             Array.Empty<FundCandle>(),
             requestedColumns: options?.Columns);
@@ -42,6 +46,10 @@ public sealed class FundsApi
     }
 
     /// <summary>Gets CSV OHLC candles for a fund or ETF symbol.</summary>
+    public Task<CsvResponse> GetCandlesCsvAsync(FundResolution resolution, string symbol, DateOnly? date = null, DateOnly? from = null, DateOnly? to = null, int? countback = null, MarketDataRequestOptions? options = null, CancellationToken cancellationToken = default) =>
+        GetCandlesCsvAsync(new FundCandlesRequest(resolution, symbol) { Date = date, From = from, To = to, Countback = countback }, options, cancellationToken);
+
+    /// <summary>Executes the endpoint request.</summary>
     public async Task<CsvResponse> GetCandlesCsvAsync(
         FundCandlesRequest request,
         MarketDataRequestOptions? options = null,

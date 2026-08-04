@@ -12,7 +12,7 @@ public sealed class MarketDataClient
     /// <param name="options">Optional client configuration.</param>
     public MarketDataClient(HttpClient httpClient, MarketDataClientOptions? options = null)
     {
-        options ??= new MarketDataClientOptions();
+        options ??= MarketDataClientOptions.FromEnvironment();
         _apiClient = new ApiClient(httpClient, options);
         Utilities = new UtilitiesApi(_apiClient);
         Markets = new MarketsApi(_apiClient);

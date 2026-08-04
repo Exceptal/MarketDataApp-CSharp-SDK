@@ -12,6 +12,10 @@ public sealed class StocksApi
     internal StocksApi(ApiClient apiClient) => _apiClient = apiClient;
 
     /// <summary>Gets a real-time or historical quote for one stock symbol.</summary>
+    public Task<StockQuotesResponse> GetQuoteAsync(string symbol, bool? extended = null, bool? candle = null, bool? week52 = null, MarketDataRequestOptions? options = null, CancellationToken cancellationToken = default) =>
+        GetQuoteAsync(new StockQuoteRequest(symbol) { Extended = extended, Candle = candle, Week52 = week52 }, options, cancellationToken);
+
+    /// <summary>Executes the endpoint request.</summary>
     public async Task<StockQuotesResponse> GetQuoteAsync(
         StockQuoteRequest request,
         MarketDataRequestOptions? options = null,
@@ -34,22 +38,22 @@ public sealed class StocksApi
                 root,
                 row => new StockQuote(
                     row.String("symbol"),
-                    row.Double("ask"),
+                    row.Decimal("ask"),
                     row.Long("askSize"),
-                    row.Double("bid"),
+                    row.Decimal("bid"),
                     row.Long("bidSize"),
-                    row.Double("mid"),
-                    row.Double("last"),
-                    row.Double("change"),
+                    row.Decimal("mid"),
+                    row.Decimal("last"),
+                    row.Decimal("change"),
                     row.Double("changepct"),
                     row.Long("volume"),
                     row.Timestamp("updated"),
-                    row.Double("o"),
-                    row.Double("h"),
-                    row.Double("l"),
-                    row.Double("c"),
-                    row.Double("52weekHigh"),
-                    row.Double("52weekLow")),
+                    row.Decimal("o"),
+                    row.Decimal("h"),
+                    row.Decimal("l"),
+                    row.Decimal("c"),
+                    row.Decimal("52weekHigh"),
+                    row.Decimal("52weekLow")),
                 "symbol", "ask", "askSize", "bid", "bidSize", "mid", "last", "change",
                 "changepct", "volume", "updated", "o", "h", "l", "c", "52weekHigh", "52weekLow"),
             Array.Empty<StockQuote>(),
@@ -58,6 +62,10 @@ public sealed class StocksApi
     }
 
     /// <summary>Gets last prices for multiple stock symbols in one request.</summary>
+    public Task<StockPricesResponse> GetPricesAsync(string[] symbols, MarketDataRequestOptions? options = null, CancellationToken cancellationToken = default) =>
+        GetPricesAsync(new StockPricesRequest(symbols), options, cancellationToken);
+
+    /// <summary>Executes the endpoint request.</summary>
     public async Task<StockPricesResponse> GetPricesAsync(
         StockPricesRequest request,
         MarketDataRequestOptions? options = null,
@@ -74,8 +82,8 @@ public sealed class StocksApi
                 root,
                 row => new StockPrice(
                     row.String("symbol"),
-                    row.Double("mid"),
-                    row.Double("change"),
+                    row.Decimal("mid"),
+                    row.Decimal("change"),
                     row.Double("changepct"),
                     row.Timestamp("updated")),
                 "symbol", "mid", "change", "changepct", "updated"),
@@ -85,6 +93,10 @@ public sealed class StocksApi
     }
 
     /// <summary>Gets the latest price for one stock symbol using the path-based endpoint.</summary>
+    public Task<StockPricesResponse> GetPriceAsync(string symbol, MarketDataRequestOptions? options = null, CancellationToken cancellationToken = default) =>
+        GetPriceAsync(new StockPriceRequest(symbol), options, cancellationToken);
+
+    /// <summary>Executes the endpoint request.</summary>
     public async Task<StockPricesResponse> GetPriceAsync(
         StockPriceRequest request,
         MarketDataRequestOptions? options = null,
@@ -105,6 +117,10 @@ public sealed class StocksApi
     }
 
     /// <summary>Gets quotes for multiple stock symbols in one request.</summary>
+    public Task<StockQuotesResponse> GetQuotesAsync(string[] symbols, bool? extended = null, bool? candle = null, bool? week52 = null, MarketDataRequestOptions? options = null, CancellationToken cancellationToken = default) =>
+        GetQuotesAsync(new StockQuotesRequest(symbols) { Extended = extended, Candle = candle, Week52 = week52 }, options, cancellationToken);
+
+    /// <summary>Executes the endpoint request.</summary>
     public async Task<StockQuotesResponse> GetQuotesAsync(
         StockQuotesRequest request,
         MarketDataRequestOptions? options = null,
@@ -127,6 +143,10 @@ public sealed class StocksApi
     }
 
     /// <summary>Gets bulk quotes for multiple stock symbols.</summary>
+    public Task<StockQuotesResponse> GetBulkQuotesAsync(string[] symbols, bool? extended = null, MarketDataRequestOptions? options = null, CancellationToken cancellationToken = default) =>
+        GetBulkQuotesAsync(new StockBulkQuotesRequest(symbols) { Extended = extended }, options, cancellationToken);
+
+    /// <summary>Executes the endpoint request.</summary>
     public async Task<StockQuotesResponse> GetBulkQuotesAsync(
         StockBulkQuotesRequest request,
         MarketDataRequestOptions? options = null,
@@ -147,6 +167,10 @@ public sealed class StocksApi
     }
 
     /// <summary>Gets OHLCV candles for a stock symbol.</summary>
+    public Task<StockCandlesResponse> GetCandlesAsync(StockResolution resolution, string symbol, DateOnly? date = null, DateOnly? from = null, DateOnly? to = null, int? countback = null, string? exchange = null, bool? extended = null, string? country = null, bool? adjustSplits = null, bool? adjustDividends = null, MarketDataRequestOptions? options = null, CancellationToken cancellationToken = default) =>
+        GetCandlesAsync(new StockCandlesRequest(resolution, symbol) { Date = date, From = from, To = to, Countback = countback, Exchange = exchange, Extended = extended, Country = country, AdjustSplits = adjustSplits, AdjustDividends = adjustDividends }, options, cancellationToken);
+
+    /// <summary>Executes the endpoint request.</summary>
     public async Task<StockCandlesResponse> GetCandlesAsync(
         StockCandlesRequest request,
         MarketDataRequestOptions? options = null,
@@ -180,6 +204,10 @@ public sealed class StocksApi
     }
 
     /// <summary>Gets news articles for a stock symbol.</summary>
+    public Task<StockNewsResponse> GetNewsAsync(string symbol, DateOnly? date = null, DateOnly? from = null, DateOnly? to = null, int? countback = null, MarketDataRequestOptions? options = null, CancellationToken cancellationToken = default) =>
+        GetNewsAsync(new StockNewsRequest(symbol) { Date = date, From = from, To = to, Countback = countback }, options, cancellationToken);
+
+    /// <summary>Executes the endpoint request.</summary>
     public async Task<StockNewsResponse> GetNewsAsync(
         StockNewsRequest request,
         MarketDataRequestOptions? options = null,
@@ -228,6 +256,10 @@ public sealed class StocksApi
     }
 
     /// <summary>Gets historical and forward earnings data for a stock symbol.</summary>
+    public Task<StockEarningsResponse> GetEarningsAsync(string symbol, DateOnly? date = null, DateOnly? from = null, DateOnly? to = null, int? countback = null, string? report = null, MarketDataRequestOptions? options = null, CancellationToken cancellationToken = default) =>
+        GetEarningsAsync(new StockEarningsRequest(symbol) { Date = date, From = from, To = to, Countback = countback, Report = report }, options, cancellationToken);
+
+    /// <summary>Executes the endpoint request.</summary>
     public async Task<StockEarningsResponse> GetEarningsAsync(
         StockEarningsRequest request,
         MarketDataRequestOptions? options = null,
@@ -255,9 +287,9 @@ public sealed class StocksApi
                     row.Timestamp("reportDate"),
                     row.String("reportTime"),
                     row.String("currency"),
-                    row.Double("reportedEPS"),
-                    row.Double("estimatedEPS"),
-                    row.Double("surpriseEPS"),
+                    row.Decimal("reportedEPS"),
+                    row.Decimal("estimatedEPS"),
+                    row.Decimal("surpriseEPS"),
                     row.Double("surpriseEPSpct"),
                     row.Timestamp("updated")),
                 "symbol", "fiscalYear", "fiscalQuarter", "date", "reportDate", "reportTime",
@@ -268,6 +300,10 @@ public sealed class StocksApi
     }
 
     /// <summary>Gets a CSV quote for one stock symbol.</summary>
+    public Task<CsvResponse> GetQuoteCsvAsync(string symbol, bool? extended = null, bool? candle = null, bool? week52 = null, MarketDataRequestOptions? options = null, CancellationToken cancellationToken = default) =>
+        GetQuoteCsvAsync(new StockQuoteRequest(symbol) { Extended = extended, Candle = candle, Week52 = week52 }, options, cancellationToken);
+
+    /// <summary>Executes the endpoint request.</summary>
     public async Task<CsvResponse> GetQuoteCsvAsync(
         StockQuoteRequest request,
         MarketDataRequestOptions? options = null,
@@ -284,6 +320,10 @@ public sealed class StocksApi
     }
 
     /// <summary>Gets CSV prices for multiple stock symbols.</summary>
+    public Task<CsvResponse> GetPricesCsvAsync(string[] symbols, MarketDataRequestOptions? options = null, CancellationToken cancellationToken = default) =>
+        GetPricesCsvAsync(new StockPricesRequest(symbols), options, cancellationToken);
+
+    /// <summary>Executes the endpoint request.</summary>
     public async Task<CsvResponse> GetPricesCsvAsync(
         StockPricesRequest request,
         MarketDataRequestOptions? options = null,
@@ -296,6 +336,10 @@ public sealed class StocksApi
     }
 
     /// <summary>Gets a CSV price for one stock symbol using the path-based endpoint.</summary>
+    public Task<CsvResponse> GetPriceCsvAsync(string symbol, MarketDataRequestOptions? options = null, CancellationToken cancellationToken = default) =>
+        GetPriceCsvAsync(new StockPriceRequest(symbol), options, cancellationToken);
+
+    /// <summary>Executes the endpoint request.</summary>
     public async Task<CsvResponse> GetPriceCsvAsync(
         StockPriceRequest request,
         MarketDataRequestOptions? options = null,
@@ -309,6 +353,10 @@ public sealed class StocksApi
     }
 
     /// <summary>Gets CSV quotes for multiple stock symbols.</summary>
+    public Task<CsvResponse> GetQuotesCsvAsync(string[] symbols, bool? extended = null, bool? candle = null, bool? week52 = null, MarketDataRequestOptions? options = null, CancellationToken cancellationToken = default) =>
+        GetQuotesCsvAsync(new StockQuotesRequest(symbols) { Extended = extended, Candle = candle, Week52 = week52 }, options, cancellationToken);
+
+    /// <summary>Executes the endpoint request.</summary>
     public async Task<CsvResponse> GetQuotesCsvAsync(
         StockQuotesRequest request,
         MarketDataRequestOptions? options = null,
@@ -324,6 +372,10 @@ public sealed class StocksApi
     }
 
     /// <summary>Gets bulk quotes for multiple stock symbols as CSV.</summary>
+    public Task<CsvResponse> GetBulkQuotesCsvAsync(string[] symbols, bool? extended = null, MarketDataRequestOptions? options = null, CancellationToken cancellationToken = default) =>
+        GetBulkQuotesCsvAsync(new StockBulkQuotesRequest(symbols) { Extended = extended }, options, cancellationToken);
+
+    /// <summary>Executes the endpoint request.</summary>
     public async Task<CsvResponse> GetBulkQuotesCsvAsync(
         StockBulkQuotesRequest request,
         MarketDataRequestOptions? options = null,
@@ -337,6 +389,10 @@ public sealed class StocksApi
     }
 
     /// <summary>Gets CSV OHLCV candles for a stock symbol.</summary>
+    public Task<CsvResponse> GetCandlesCsvAsync(StockResolution resolution, string symbol, DateOnly? date = null, DateOnly? from = null, DateOnly? to = null, int? countback = null, string? exchange = null, bool? extended = null, string? country = null, bool? adjustSplits = null, bool? adjustDividends = null, MarketDataRequestOptions? options = null, CancellationToken cancellationToken = default) =>
+        GetCandlesCsvAsync(new StockCandlesRequest(resolution, symbol) { Date = date, From = from, To = to, Countback = countback, Exchange = exchange, Extended = extended, Country = country, AdjustSplits = adjustSplits, AdjustDividends = adjustDividends }, options, cancellationToken);
+
+    /// <summary>Executes the endpoint request.</summary>
     public async Task<CsvResponse> GetCandlesCsvAsync(
         StockCandlesRequest request,
         MarketDataRequestOptions? options = null,
@@ -372,6 +428,10 @@ public sealed class StocksApi
     }
 
     /// <summary>Gets CSV news articles for a stock symbol.</summary>
+    public Task<CsvResponse> GetNewsCsvAsync(string symbol, DateOnly? date = null, DateOnly? from = null, DateOnly? to = null, int? countback = null, MarketDataRequestOptions? options = null, CancellationToken cancellationToken = default) =>
+        GetNewsCsvAsync(new StockNewsRequest(symbol) { Date = date, From = from, To = to, Countback = countback }, options, cancellationToken);
+
+    /// <summary>Executes the endpoint request.</summary>
     public async Task<CsvResponse> GetNewsCsvAsync(
         StockNewsRequest request,
         MarketDataRequestOptions? options = null,
@@ -388,6 +448,10 @@ public sealed class StocksApi
     }
 
     /// <summary>Gets CSV earnings data for a stock symbol.</summary>
+    public Task<CsvResponse> GetEarningsCsvAsync(string symbol, DateOnly? date = null, DateOnly? from = null, DateOnly? to = null, int? countback = null, string? report = null, MarketDataRequestOptions? options = null, CancellationToken cancellationToken = default) =>
+        GetEarningsCsvAsync(new StockEarningsRequest(symbol) { Date = date, From = from, To = to, Countback = countback, Report = report }, options, cancellationToken);
+
+    /// <summary>Executes the endpoint request.</summary>
     public async Task<CsvResponse> GetEarningsCsvAsync(
         StockEarningsRequest request,
         MarketDataRequestOptions? options = null,
@@ -430,10 +494,10 @@ public sealed class StocksApi
                 root,
                 row => new StockCandle(
                     row.Timestamp("t"),
-                    row.Double("o"),
-                    row.Double("h"),
-                    row.Double("l"),
-                    row.Double("c"),
+                    row.Decimal("o"),
+                    row.Decimal("h"),
+                    row.Decimal("l"),
+                    row.Decimal("c"),
                     row.Long("v")),
                 "t", "o", "h", "l", "c", "v"),
             Array.Empty<StockCandle>(),
@@ -555,22 +619,22 @@ public sealed class StocksApi
             root,
             row => new StockQuote(
                 row.String("symbol"),
-                row.Double("ask"),
+                row.Decimal("ask"),
                 row.Long("askSize"),
-                row.Double("bid"),
+                row.Decimal("bid"),
                 row.Long("bidSize"),
-                row.Double("mid"),
-                row.Double("last"),
-                row.Double("change"),
+                row.Decimal("mid"),
+                row.Decimal("last"),
+                row.Decimal("change"),
                 row.Double("changepct"),
                 row.Long("volume"),
                 row.Timestamp("updated"),
-                row.Double("o"),
-                row.Double("h"),
-                row.Double("l"),
-                row.Double("c"),
-                row.Double("52weekHigh"),
-                row.Double("52weekLow")),
+                row.Decimal("o"),
+                row.Decimal("h"),
+                row.Decimal("l"),
+                row.Decimal("c"),
+                row.Decimal("52weekHigh"),
+                row.Decimal("52weekLow")),
             "symbol", "ask", "askSize", "bid", "bidSize", "mid", "last", "change",
             "changepct", "volume", "updated", "o", "h", "l", "c", "52weekHigh", "52weekLow");
 
@@ -579,8 +643,8 @@ public sealed class StocksApi
             root,
             row => new StockPrice(
                 row.String("symbol"),
-                row.Double("mid"),
-                row.Double("change"),
+                row.Decimal("mid"),
+                row.Decimal("change"),
                 row.Double("changepct"),
                 row.Timestamp("updated")),
             "symbol", "mid", "change", "changepct", "updated");

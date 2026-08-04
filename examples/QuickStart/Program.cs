@@ -1,15 +1,15 @@
 // QuickStart — Market Data C#/.NET SDK
 //
 // Demonstrates: initialization, typed calls, cancellation, CSV export, and
-// exception handling. No live network call is made unless MarketData:ApiToken is configured.
+// exception handling. No live network call is made unless MARKETDATA_TOKEN is configured.
 //
 // Setup (dotnet user-secrets):
 //   cd examples/QuickStart
 //   dotnet user-secrets init
-//   dotnet user-secrets set "MarketData:ApiToken" "your-api-token"
+//   dotnet user-secrets set "MARKETDATA_TOKEN" "your-api-token"
 //
 // Or supply the token via an environment variable:
-//   MarketData__ApiToken=your-api-token dotnet run
+//   MARKETDATA_TOKEN=your-api-token dotnet run
 //
 // Without a token the program prints the quick-start patterns but skips network calls.
 
@@ -22,11 +22,11 @@ using Microsoft.Extensions.Hosting;
 // ── 1. Configuration via .NET IConfiguration (user-secrets or environment) ──────
 var builder = Host.CreateApplicationBuilder(args);
 builder.Configuration
-    .AddEnvironmentVariables()         // MarketData__ApiToken, etc.
+    .AddEnvironmentVariables()         // MARKETDATA_TOKEN, etc.
     .AddUserSecrets<Program>(optional: true); // dotnet user-secrets for local dev
 
 // Build MarketDataClientOptions from configuration.
-// Reads all MarketData:* keys from any registered provider.
+// Reads all MARKETDATA_* keys from any registered provider.
 var options = MarketDataClientOptions.FromConfiguration(builder.Configuration);
 
 // ── 2. Client lifetime ───────────────────────────────────────────────────────────
@@ -37,7 +37,7 @@ var client = new MarketDataClient(httpClient, options);
 
 if (options.ApiToken is null)
 {
-    Console.WriteLine("No API token found. Set MarketData__ApiToken or use dotnet user-secrets.");
+    Console.WriteLine("No API token found. Set MARKETDATA_TOKEN or use dotnet user-secrets.");
     Console.WriteLine("Printing patterns only — skipping live calls.");
     PrintPatterns();
     return;

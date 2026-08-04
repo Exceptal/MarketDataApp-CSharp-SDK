@@ -76,7 +76,7 @@ public sealed class OptionsApiTests
                 Countback = 3
             });
 
-        Assert.Equal(12.5, response.Values[0].Last);
+        Assert.Equal(12.5m, response.Values[0].Last);
         Assert.Equal(10, response.Values[0].Dte);
         Assert.Equal("/v1/options/quotes/AAPL250117C00150000/", handler.LastRequest!.RequestUri!.AbsolutePath);
         Assert.Contains("to=2025-01-10", handler.LastRequest.RequestUri.Query);
@@ -105,7 +105,7 @@ public sealed class OptionsApiTests
 
         Assert.Equal(2, requestCount);
         Assert.Equal(2, response.Count);
-        Assert.All(response.Values, value => Assert.Equal(12.5, value.Values[0].Last));
+        Assert.All(response.Values, value => Assert.Equal(12.5m, value.Values[0].Last));
     }
 
     [Fact]
@@ -138,11 +138,11 @@ public sealed class OptionsApiTests
                 Delta = 0.5,
                 StrikeLimit = 5,
                 StrikeRangeFilter = StrikeRange.Itm,
-                MinBid = 1.25,
-                MaxBid = 10,
-                MinAsk = 1.5,
-                MaxAsk = 11,
-                MaxBidAskSpread = 0.5,
+                MinBid = 1.25m,
+                MaxBid = 10m,
+                MinAsk = 1.5m,
+                MaxAsk = 11m,
+                MaxBidAskSpread = 0.5m,
                 MaxBidAskSpreadPct = 0.1,
                 MinOpenInterest = 100,
                 MinVolume = 20,
@@ -150,7 +150,7 @@ public sealed class OptionsApiTests
                 Date = new DateOnly(2025, 1, 10)
             });
 
-        Assert.Equal(12.5, response.Values[0].Last);
+        Assert.Equal(12.5m, response.Values[0].Last);
         var query = handler.LastRequest!.RequestUri!.Query;
         Assert.Equal("/v1/options/chain/AAPL/", handler.LastRequest.RequestUri.AbsolutePath);
         Assert.Contains("from=2025-01-01", query);
@@ -196,10 +196,22 @@ public sealed class OptionsApiTests
                 Expiration = new DateOnly(2025, 1, 17)
             });
 
-        Assert.Equal([145d, 150d, 155d], response.Values.ByExpiration[new DateOnly(2025, 1, 17)]);
+        Assert.Equal([145m, 150m, 155m], response.Values.ByExpiration[new DateOnly(2025, 1, 17)]);
         Assert.NotNull(response.Values.Updated);
         Assert.Equal("/v1/options/strikes/AAPL/", handler.LastRequest!.RequestUri!.AbsolutePath);
         Assert.Contains("date=2025-01-10", handler.LastRequest.RequestUri.Query);
         Assert.Contains("expiration=2025-01-17", handler.LastRequest.RequestUri.Query);
     }
+
+    [Fact]
+    public async Task GetQuoteAsync_ScalarOverloadBuildsRequest()
+    {
+        var handler = new StubHttpMessageHandler(_ => MarketDataTestClient.JsonResponse("""{"s":"ok","optionSymbol":["AAPL250117C00150000"]}"""));
+        var client = MarketDataTestClient.Create(handler);
+
+        await client.Options.GetQuoteAsync("AAPL250117C00150000", countback: 5);
+
+        Assert.Contains("countback=5", handler.LastRequest!.RequestUri!.Query);
+    }
+
 }

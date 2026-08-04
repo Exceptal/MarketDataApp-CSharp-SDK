@@ -7,12 +7,12 @@ keys:
 
 | Key | Property | Default |
 |---|---|---|
-| `MarketData:ApiToken` | `ApiToken` | `null` |
-| `MarketData:BaseAddress` | `BaseAddress` | `https://api.marketdata.app/` |
-| `MarketData:ApiVersion` | `ApiVersion` | `v1` |
-| `MarketData:Timeout` | `Timeout` | 99 seconds |
-| `MarketData:MaxRetries` | `MaxRetries` | 3 retries |
-| `MarketData:MaxConcurrentRequests` | `MaxConcurrentRequests` | 50 |
+| `MARKETDATA_TOKEN` | `ApiToken` | `null` |
+| `MARKETDATA_BASE_URL` | `BaseAddress` | `https://api.marketdata.app/` |
+| `MARKETDATA_API_VERSION` | `ApiVersion` | `v1` |
+| `MARKETDATA_TIMEOUT` | `Timeout` | 99 seconds |
+| `MARKETDATA_MAX_RETRIES` | `MaxRetries` | 3 retries |
+| `MARKETDATA_MAX_CONCURRENT_REQUESTS` | `MaxConcurrentRequests` | 50 |
 
 Advanced retry delays, jitter, `TimeProvider`, and `UserAgent` are configured
 programmatically:

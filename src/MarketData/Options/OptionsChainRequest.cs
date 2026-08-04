@@ -47,19 +47,19 @@ public record OptionsChainRequest
     public StrikeRange? StrikeRangeFilter { get; init; }
 
     /// <summary>Minimum bid price filter.</summary>
-    public double? MinBid { get; init; }
+    public decimal? MinBid { get; init; }
 
     /// <summary>Maximum bid price filter.</summary>
-    public double? MaxBid { get; init; }
+    public decimal? MaxBid { get; init; }
 
     /// <summary>Minimum ask price filter.</summary>
-    public double? MinAsk { get; init; }
+    public decimal? MinAsk { get; init; }
 
     /// <summary>Maximum ask price filter.</summary>
-    public double? MaxAsk { get; init; }
+    public decimal? MaxAsk { get; init; }
 
     /// <summary>Maximum allowable bid/ask spread.</summary>
-    public double? MaxBidAskSpread { get; init; }
+    public decimal? MaxBidAskSpread { get; init; }
 
     /// <summary>Maximum allowable bid/ask spread as a fraction of the mid price.</summary>
     public double? MaxBidAskSpreadPct { get; init; }

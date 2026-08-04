@@ -12,6 +12,10 @@ public sealed class OptionsApi
     internal OptionsApi(ApiClient apiClient) => _apiClient = apiClient;
 
     /// <summary>Resolves user input to a canonical OCC option symbol.</summary>
+    public Task<OptionsLookupResponse> GetLookupAsync(string userInput, MarketDataRequestOptions? options = null, CancellationToken cancellationToken = default) =>
+        GetLookupAsync(new OptionsLookupRequest(userInput), options, cancellationToken);
+
+    /// <summary>Executes the endpoint request.</summary>
     public async Task<OptionsLookupResponse> GetLookupAsync(
         OptionsLookupRequest request,
         MarketDataRequestOptions? options = null,
@@ -35,6 +39,10 @@ public sealed class OptionsApi
     }
 
     /// <summary>Gets available expiration dates for an underlying symbol.</summary>
+    public Task<OptionsExpirationsResponse> GetExpirationsAsync(string symbol, decimal? strike = null, DateOnly? date = null, bool? nonStandard = null, MarketDataRequestOptions? options = null, CancellationToken cancellationToken = default) =>
+        GetExpirationsAsync(new OptionsExpirationsRequest(symbol) { Strike = strike, Date = date, NonStandard = nonStandard }, options, cancellationToken);
+
+    /// <summary>Executes the endpoint request.</summary>
     public async Task<OptionsExpirationsResponse> GetExpirationsAsync(
         OptionsExpirationsRequest request,
         MarketDataRequestOptions? options = null,
@@ -74,6 +82,10 @@ public sealed class OptionsApi
     }
 
     /// <summary>Gets available strike prices grouped by expiration date.</summary>
+    public Task<OptionsStrikesResponse> GetStrikesAsync(string underlying, DateOnly? date = null, DateOnly? expiration = null, MarketDataRequestOptions? options = null, CancellationToken cancellationToken = default) =>
+        GetStrikesAsync(new OptionsStrikesRequest(underlying) { Date = date, Expiration = expiration }, options, cancellationToken);
+
+    /// <summary>Executes the endpoint request.</summary>
     public async Task<OptionsStrikesResponse> GetStrikesAsync(
         OptionsStrikesRequest request,
         MarketDataRequestOptions? options = null,
@@ -93,12 +105,16 @@ public sealed class OptionsApi
             ParseOptionStrikes,
             new OptionStrikes(
                 null,
-                new Dictionary<DateOnly, IReadOnlyList<double>>()),
+                new Dictionary<DateOnly, IReadOnlyList<decimal>>()),
             requestedColumns: options?.Columns);
         return JsonResponseParser.CreateResponse<OptionsStrikesResponse, OptionStrikes>(response, values);
     }
 
     /// <summary>Gets historical or current quotes for one OCC option symbol.</summary>
+    public Task<OptionsQuotesResponse> GetQuoteAsync(string optionSymbol, DateOnly? date = null, DateOnly? from = null, DateOnly? to = null, int? countback = null, MarketDataRequestOptions? options = null, CancellationToken cancellationToken = default) =>
+        GetQuoteAsync(new OptionsQuoteRequest(optionSymbol) { Date = date, From = from, To = to, Countback = countback }, options, cancellationToken);
+
+    /// <summary>Executes the endpoint request.</summary>
     public async Task<OptionsQuotesResponse> GetQuoteAsync(
         OptionsQuoteRequest request,
         MarketDataRequestOptions? options = null,
@@ -121,6 +137,10 @@ public sealed class OptionsApi
     /// <summary>
     /// Gets quotes for multiple OCC option symbols. The API is called once per symbol concurrently.
     /// </summary>
+    public Task<IReadOnlyDictionary<string, OptionsQuotesResponse>> GetQuotesAsync(string[] optionSymbols, DateOnly? date = null, DateOnly? from = null, DateOnly? to = null, int? countback = null, MarketDataRequestOptions? options = null, CancellationToken cancellationToken = default) =>
+        GetQuotesAsync(new OptionsQuotesRequest(optionSymbols) { Date = date, From = from, To = to, Countback = countback }, options, cancellationToken);
+
+    /// <summary>Executes the endpoint request.</summary>
     public async Task<IReadOnlyDictionary<string, OptionsQuotesResponse>> GetQuotesAsync(
         OptionsQuotesRequest request,
         MarketDataRequestOptions? options = null,
@@ -146,6 +166,10 @@ public sealed class OptionsApi
     }
 
     /// <summary>Gets the options chain for an underlying symbol.</summary>
+    public Task<OptionsChainResponse> GetChainAsync(string symbol, ExpirationFilter? expiration = null, bool? weekly = null, bool? monthly = null, bool? quarterly = null, bool? am = null, bool? pm = null, bool? nonStandard = null, StrikeFilter? strike = null, double? delta = null, int? strikeLimit = null, StrikeRange? strikeRangeFilter = null, decimal? minBid = null, decimal? maxBid = null, decimal? minAsk = null, decimal? maxAsk = null, decimal? maxBidAskSpread = null, double? maxBidAskSpreadPct = null, long? minOpenInterest = null, long? minVolume = null, OptionSide? side = null, DateOnly? date = null, MarketDataRequestOptions? options = null, CancellationToken cancellationToken = default) =>
+        GetChainAsync(new OptionsChainRequest(symbol) { Expiration = expiration, Weekly = weekly, Monthly = monthly, Quarterly = quarterly, Am = am, Pm = pm, NonStandard = nonStandard, Strike = strike, Delta = delta, StrikeLimit = strikeLimit, StrikeRangeFilter = strikeRangeFilter, MinBid = minBid, MaxBid = maxBid, MinAsk = minAsk, MaxAsk = maxAsk, MaxBidAskSpread = maxBidAskSpread, MaxBidAskSpreadPct = maxBidAskSpreadPct, MinOpenInterest = minOpenInterest, MinVolume = minVolume, Side = side, Date = date }, options, cancellationToken);
+
+    /// <summary>Executes the endpoint request.</summary>
     public async Task<OptionsChainResponse> GetChainAsync(
         OptionsChainRequest request,
         MarketDataRequestOptions? options = null,
@@ -190,6 +214,10 @@ public sealed class OptionsApi
     }
 
     /// <summary>Resolves user input to a canonical OCC option symbol as CSV.</summary>
+    public Task<CsvResponse> GetLookupCsvAsync(string userInput, MarketDataRequestOptions? options = null, CancellationToken cancellationToken = default) =>
+        GetLookupCsvAsync(new OptionsLookupRequest(userInput), options, cancellationToken);
+
+    /// <summary>Executes the endpoint request.</summary>
     public async Task<CsvResponse> GetLookupCsvAsync(
         OptionsLookupRequest request,
         MarketDataRequestOptions? options = null,
@@ -203,6 +231,10 @@ public sealed class OptionsApi
     }
 
     /// <summary>Gets available expiration dates for an underlying symbol as CSV.</summary>
+    public Task<CsvResponse> GetExpirationsCsvAsync(string symbol, decimal? strike = null, DateOnly? date = null, bool? nonStandard = null, MarketDataRequestOptions? options = null, CancellationToken cancellationToken = default) =>
+        GetExpirationsCsvAsync(new OptionsExpirationsRequest(symbol) { Strike = strike, Date = date, NonStandard = nonStandard }, options, cancellationToken);
+
+    /// <summary>Executes the endpoint request.</summary>
     public async Task<CsvResponse> GetExpirationsCsvAsync(
         OptionsExpirationsRequest request,
         MarketDataRequestOptions? options = null,
@@ -219,6 +251,10 @@ public sealed class OptionsApi
     }
 
     /// <summary>Gets available strike prices grouped by expiration date as CSV.</summary>
+    public Task<CsvResponse> GetStrikesCsvAsync(string underlying, DateOnly? date = null, DateOnly? expiration = null, MarketDataRequestOptions? options = null, CancellationToken cancellationToken = default) =>
+        GetStrikesCsvAsync(new OptionsStrikesRequest(underlying) { Date = date, Expiration = expiration }, options, cancellationToken);
+
+    /// <summary>Executes the endpoint request.</summary>
     public async Task<CsvResponse> GetStrikesCsvAsync(
         OptionsStrikesRequest request,
         MarketDataRequestOptions? options = null,
@@ -235,6 +271,10 @@ public sealed class OptionsApi
     }
 
     /// <summary>Gets historical or current quotes for one OCC option symbol as CSV.</summary>
+    public Task<CsvResponse> GetQuoteCsvAsync(string optionSymbol, DateOnly? date = null, DateOnly? from = null, DateOnly? to = null, int? countback = null, MarketDataRequestOptions? options = null, CancellationToken cancellationToken = default) =>
+        GetQuoteCsvAsync(new OptionsQuoteRequest(optionSymbol) { Date = date, From = from, To = to, Countback = countback }, options, cancellationToken);
+
+    /// <summary>Executes the endpoint request.</summary>
     public async Task<CsvResponse> GetQuoteCsvAsync(
         OptionsQuoteRequest request,
         MarketDataRequestOptions? options = null,
@@ -251,6 +291,10 @@ public sealed class OptionsApi
     }
 
     /// <summary>Gets quotes for multiple OCC option symbols as CSV, one response per symbol.</summary>
+    public Task<IReadOnlyDictionary<string, CsvResponse>> GetQuotesCsvAsync(string[] optionSymbols, DateOnly? date = null, DateOnly? from = null, DateOnly? to = null, int? countback = null, MarketDataRequestOptions? options = null, CancellationToken cancellationToken = default) =>
+        GetQuotesCsvAsync(new OptionsQuotesRequest(optionSymbols) { Date = date, From = from, To = to, Countback = countback }, options, cancellationToken);
+
+    /// <summary>Executes the endpoint request.</summary>
     public async Task<IReadOnlyDictionary<string, CsvResponse>> GetQuotesCsvAsync(
         OptionsQuotesRequest request,
         MarketDataRequestOptions? options = null,
@@ -273,6 +317,10 @@ public sealed class OptionsApi
     }
 
     /// <summary>Gets the options chain for an underlying symbol as CSV.</summary>
+    public Task<CsvResponse> GetChainCsvAsync(string symbol, ExpirationFilter? expiration = null, bool? weekly = null, bool? monthly = null, bool? quarterly = null, bool? am = null, bool? pm = null, bool? nonStandard = null, StrikeFilter? strike = null, double? delta = null, int? strikeLimit = null, StrikeRange? strikeRangeFilter = null, decimal? minBid = null, decimal? maxBid = null, decimal? minAsk = null, decimal? maxAsk = null, decimal? maxBidAskSpread = null, double? maxBidAskSpreadPct = null, long? minOpenInterest = null, long? minVolume = null, OptionSide? side = null, DateOnly? date = null, MarketDataRequestOptions? options = null, CancellationToken cancellationToken = default) =>
+        GetChainCsvAsync(new OptionsChainRequest(symbol) { Expiration = expiration, Weekly = weekly, Monthly = monthly, Quarterly = quarterly, Am = am, Pm = pm, NonStandard = nonStandard, Strike = strike, Delta = delta, StrikeLimit = strikeLimit, StrikeRangeFilter = strikeRangeFilter, MinBid = minBid, MaxBid = maxBid, MinAsk = minAsk, MaxAsk = maxAsk, MaxBidAskSpread = maxBidAskSpread, MaxBidAskSpreadPct = maxBidAskSpreadPct, MinOpenInterest = minOpenInterest, MinVolume = minVolume, Side = side, Date = date }, options, cancellationToken);
+
+    /// <summary>Executes the endpoint request.</summary>
     public async Task<CsvResponse> GetChainCsvAsync(
         OptionsChainRequest request,
         MarketDataRequestOptions? options = null,
@@ -349,22 +397,22 @@ public sealed class OptionsApi
                 row.String("underlying"),
                 row.Timestamp("expiration"),
                 row.String("side"),
-                row.Double("strike"),
+                row.Decimal("strike"),
                 row.Timestamp("firstTraded"),
                 ToInt(row.Long("dte")),
                 row.Timestamp("updated"),
-                row.Double("bid"),
+                row.Decimal("bid"),
                 row.Long("bidSize"),
-                row.Double("mid"),
-                row.Double("ask"),
+                row.Decimal("mid"),
+                row.Decimal("ask"),
                 row.Long("askSize"),
-                row.Double("last"),
+                row.Decimal("last"),
                 row.Long("openInterest"),
                 row.Long("volume"),
                 row.Boolean("inTheMoney"),
-                row.Double("intrinsicValue"),
-                row.Double("extrinsicValue"),
-                row.Double("underlyingPrice"),
+                row.Decimal("intrinsicValue"),
+                row.Decimal("extrinsicValue"),
+                row.Decimal("underlyingPrice"),
                 row.Double("iv"),
                 row.Double("delta"),
                 row.Double("gamma"),
@@ -378,7 +426,7 @@ public sealed class OptionsApi
 
     private static OptionStrikes ParseOptionStrikes(JsonElement root)
     {
-        var strikes = new Dictionary<DateOnly, IReadOnlyList<double>>();
+        var strikes = new Dictionary<DateOnly, IReadOnlyList<decimal>>();
         foreach (var property in root.EnumerateObject())
         {
             if (!DateOnly.TryParseExact(
@@ -396,10 +444,10 @@ public sealed class OptionsApi
                 throw new JsonException($"Strike field '{property.Name}' must be an array.");
             }
 
-            var values = new List<double>(property.Value.GetArrayLength());
+            var values = new List<decimal>(property.Value.GetArrayLength());
             foreach (var value in property.Value.EnumerateArray())
             {
-                if (!value.TryGetDouble(out var strike))
+                if (!value.TryGetDecimal(out var strike))
                 {
                     throw new JsonException($"Strike field '{property.Name}' contains a non-numeric value.");
                 }
@@ -490,7 +538,7 @@ public sealed class OptionsApi
         }
     }
 
-    private static void ValidateRange(double? minimum, double? maximum, string name, string parameterName)
+    private static void ValidateRange(decimal? minimum, decimal? maximum, string name, string parameterName)
     {
         if (minimum is < 0 || maximum is < 0)
         {
@@ -502,6 +550,12 @@ public sealed class OptionsApi
             throw new ArgumentException($"Minimum {name} cannot exceed maximum {name}.", parameterName);
         }
     }
+
+    private static void Add(
+        ICollection<KeyValuePair<string, string?>> query,
+        string name,
+        decimal? value) =>
+        RequestQuery.Add(query, name, value?.ToString(CultureInfo.InvariantCulture));
 
     private static void Add(
         ICollection<KeyValuePair<string, string?>> query,
@@ -521,7 +575,7 @@ public sealed class OptionsApi
         double? value) =>
         RequestQuery.Add(query, name, value?.ToString(CultureInfo.InvariantCulture));
 
-    private static string FormatNumber(double value) =>
+    private static string FormatNumber(decimal value) =>
         value.ToString("G", CultureInfo.InvariantCulture);
 
     private static int? ToInt(long? value) => value is null ? null : checked((int)value.Value);

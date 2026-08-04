@@ -12,7 +12,7 @@ namespace MarketData.Funds;
 /// <param name="Close">Closing NAV (wire field: <c>c</c>).</param>
 public record FundCandle(
     DateTimeOffset? Time,
-    double? Open,
-    double? High,
-    double? Low,
-    double? Close);
+    decimal? Open,
+    decimal? High,
+    decimal? Low,
+    decimal? Close);

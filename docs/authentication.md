@@ -10,7 +10,7 @@ From an executable project:
 
 ```powershell
 dotnet user-secrets init
-dotnet user-secrets set "MarketData:ApiToken" "your-api-token"
+dotnet user-secrets set "MARKETDATA_TOKEN" "your-api-token"
 ```
 
 Load the provider and create options:
@@ -33,11 +33,11 @@ The SDK does not load `.env` files automatically.
 .NET maps a double underscore to a configuration section separator:
 
 ```powershell
-$env:MarketData__ApiToken = "your-api-token"
+$env:MARKETDATA_TOKEN = "your-api-token"
 dotnet run
 ```
 
-The equivalent configuration key is `MarketData:ApiToken`. Other supported keys are
+The equivalent configuration key is `MARKETDATA_TOKEN`. Other supported keys are
 `BaseAddress`, `ApiVersion`, `Timeout`, `MaxRetries`, and `MaxConcurrentRequests`.
 
 ## Explicit options

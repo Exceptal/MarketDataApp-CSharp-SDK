@@ -10,7 +10,7 @@ public record OptionsExpirationsRequest
     public string Symbol { get; init; }
 
     /// <summary>Filter to expirations that have a contract at this strike price.</summary>
-    public double? Strike { get; init; }
+    public decimal? Strike { get; init; }
 
     /// <summary>Return expirations as-of this historical date rather than live.</summary>
     public DateOnly? Date { get; init; }
