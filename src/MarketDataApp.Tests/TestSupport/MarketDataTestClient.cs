@@ -10,13 +10,13 @@ internal static class MarketDataTestClient
     {
         return new MarketDataClient(
             new HttpClient(handler),
-            new MarketDataClientOptions { ApiToken = token });
+            new MarketDataClientOptions { ApiToken = token, ValidateTokenOnStartup = false });
     }
 
     public static MarketDataClient Create(
         HttpMessageHandler handler,
         MarketDataClientOptions options) =>
-        new(new HttpClient(handler), options);
+        new(new HttpClient(handler), options with { ValidateTokenOnStartup = false });
 
     public static HttpResponseMessage JsonResponse(string body) =>
         new(System.Net.HttpStatusCode.OK)

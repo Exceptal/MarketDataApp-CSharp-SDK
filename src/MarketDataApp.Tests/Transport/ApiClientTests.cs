@@ -12,6 +12,37 @@ namespace MarketDataApp.Tests.Transport;
 public sealed class ApiClientTests
 {
     [Fact]
+    public void AuthenticatedClient_ValidatesTokenAtStartup()
+    {
+        var requests = new List<string>();
+        var handler = new StubHttpMessageHandler(request =>
+        {
+            requests.Add(request.RequestUri!.AbsolutePath);
+            return new HttpResponseMessage(HttpStatusCode.OK);
+        });
+
+        _ = new MarketDataClient(
+            new HttpClient(handler),
+            new MarketDataClientOptions { ApiToken = "secret-token" });
+
+        Assert.Equal(["/user/"], requests);
+    }
+
+    [Fact]
+    public void InvalidStartupToken_FailsClientConstruction()
+    {
+        var handler = new StubHttpMessageHandler(_ =>
+            new HttpResponseMessage(HttpStatusCode.Unauthorized)
+            {
+                Content = new StringContent("invalid token")
+            });
+
+        Assert.Throws<AuthenticationException>(() => new MarketDataClient(
+            new HttpClient(handler),
+            new MarketDataClientOptions { ApiToken = "secret-token" }));
+    }
+
+    [Fact]
     public async Task UnauthorizedResponse_MapsToAuthenticationException()
     {
         var handler = new StubHttpMessageHandler(_ => new HttpResponseMessage(HttpStatusCode.Unauthorized)
@@ -57,7 +88,7 @@ public sealed class ApiClientTests
     }
 
     [Fact]
-    public async Task RetryAfterHeader_IsUsedBeforeRetrying()
+    public async Task RateLimitResponse_IsNotRetried()
     {
         var attempts = 0;
         var handler = new StubHttpMessageHandler(_ =>
@@ -87,12 +118,11 @@ public sealed class ApiClientTests
             MaxRetries = 1,
             RetryBaseDelay = TimeSpan.Zero
         });
-        var stopwatch = Stopwatch.StartNew();
+        var exception = await Assert.ThrowsAsync<RateLimitException>(
+            () => client.Stocks.GetQuoteAsync(new StockQuoteRequest("AAPL")));
 
-        await client.Stocks.GetQuoteAsync(new StockQuoteRequest("AAPL"));
-
-        Assert.Equal(2, attempts);
-        Assert.True(stopwatch.Elapsed >= TimeSpan.FromMilliseconds(40));
+        Assert.Equal(1, attempts);
+        Assert.True(exception.RetryAfter > TimeSpan.Zero);
     }
 
     [Fact]

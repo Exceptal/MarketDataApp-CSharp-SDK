@@ -7,6 +7,18 @@ namespace MarketDataApp;
 
 internal static class JsonResponseParser
 {
+    private static readonly Lazy<TimeZoneInfo> EasternTimeZone = new(() =>
+    {
+        try
+        {
+            return TimeZoneInfo.FindSystemTimeZoneById("America/New_York");
+        }
+        catch (TimeZoneNotFoundException)
+        {
+            return TimeZoneInfo.FindSystemTimeZoneById("Eastern Standard Time");
+        }
+    });
+
     public static JsonElement Parse(InternalApiResponse response)
     {
         try
@@ -105,7 +117,7 @@ internal static class JsonResponseParser
         if (value.Value.ValueKind == JsonValueKind.Number
             && value.Value.TryGetDouble(out var number))
         {
-            return DateTimeOffset.UnixEpoch.AddSeconds(number);
+            return ToEastern(DateTimeOffset.UnixEpoch.AddSeconds(number));
         }
 
         if (value.Value.ValueKind == JsonValueKind.String
@@ -115,11 +127,14 @@ internal static class JsonResponseParser
                 DateTimeStyles.AssumeUniversal,
                 out var timestamp))
         {
-            return timestamp;
+            return ToEastern(timestamp);
         }
 
         return null;
     }
+
+    private static DateTimeOffset ToEastern(DateTimeOffset timestamp) =>
+        TimeZoneInfo.ConvertTime(timestamp, EasternTimeZone.Value);
 
     public static DateTimeOffset? Timestamp(JsonElement root, string name) =>
         root.TryGetProperty(name, out var value) ? ToDateTime(value) : null;

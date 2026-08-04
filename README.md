@@ -193,9 +193,18 @@ All listed `MARKETDATA_*` keys, including retry tuning, `MaxConcurrentRequests`,
 via `IConfiguration`; pass it directly to the constructor to replace the system clock,
 which is useful in unit tests.
 
+Authenticated clients validate their token with `/user/` during construction by default.
+Set `ValidateTokenOnStartup = false` when a short-lived process should defer validation
+until its first authenticated request. Pass an `ILogger` through `Logger`, or use
+`options.WithLogger(logger)`, to receive structured SDK diagnostics. Tokens are always
+redacted in log output.
+
 ---
 
 ## Request and response model
+
+API Unix timestamps and timestamp strings are returned as `DateTimeOffset` values
+normalized to the `America/New_York`/US Eastern time zone.
 
 ### Simple endpoint calls
 
@@ -590,11 +599,9 @@ Caller `CancellationToken` cancellation remains distinguishable from an SDK time
 The following failures trigger automatic retries up to `MaxRetries` times (default 3):
 
 - Transport failures (`NetworkException`)
-- HTTP 408 (Request Timeout)
-- HTTP 429 (Too Many Requests)
-- HTTP 5xx (Server Errors)
+- HTTP 501–599 (server failures)
 
-Deterministic failures (400, 401, 403, 404, parse errors) are **never** retried.
+HTTP 400, 401, 403, 404, 408, 429, 500, and parse errors are **never** retried.
 
 Retry delay uses exponential backoff with jitter. When the server supplies a
 `Retry-After` header, that value takes precedence and is capped at `MaxRetryAfter`.
@@ -672,7 +679,27 @@ URL, request ID, rate-limit snapshot, status, and raw response body.
 
 ---
 
-## Diagnostics and tracing
+## Diagnostics, logging, and tracing
+
+The SDK accepts any `Microsoft.Extensions.Logging.ILogger` implementation:
+
+```csharp
+var options = new MarketDataClientOptions
+{
+    ApiToken = token,
+    Logger = logger
+};
+var client = new MarketDataClient(httpClient, options);
+```
+
+The `WithLogger` extension provides the equivalent fluent form:
+
+```csharp
+var client = new MarketDataClient(httpClient, options.WithLogger(logger));
+```
+
+It logs initialization, redacted token configuration, request/response details, retries,
+and failures without logging credentials.
 
 The SDK emits `System.Diagnostics.Activity` spans via `MarketDataDiagnostics.ActivitySource`.
 

@@ -4,6 +4,7 @@ using System.Net;
 using System.Net.Http.Headers;
 using System.Text;
 using MarketDataApp.Exceptions;
+using Microsoft.Extensions.Logging;
 
 namespace MarketDataApp;
 
@@ -11,6 +12,7 @@ internal sealed class ApiClient
 {
     private readonly HttpClient _httpClient;
     private readonly MarketDataClientOptions _options;
+    private readonly ILogger? _logger;
     private readonly SemaphoreSlim _concurrencyGate;
     private RateLimitSnapshot? _latestRateLimit;
 
@@ -18,6 +20,7 @@ internal sealed class ApiClient
     {
         _httpClient = httpClient ?? throw new ArgumentNullException(nameof(httpClient));
         _options = options ?? throw new ArgumentNullException(nameof(options));
+        _logger = _options.Logger;
         if (_options.BaseAddress is null)
         {
             throw new ArgumentException("BaseAddress is required.", nameof(options));
@@ -68,6 +71,22 @@ internal sealed class ApiClient
         ValidateApiToken(_options.ApiToken, nameof(options));
         ValidateUserAgent(_options.UserAgent, nameof(options));
         _concurrencyGate = new SemaphoreSlim(_options.MaxConcurrentRequests, _options.MaxConcurrentRequests);
+        _logger?.LogInformation(
+            "Market Data client initialized with base URL {BaseAddress} and API version {ApiVersion}.",
+            _options.BaseAddress,
+            _options.ApiVersion);
+        if (!string.IsNullOrWhiteSpace(_options.ApiToken))
+        {
+            _logger?.LogDebug("API token configured with redacted suffix {TokenSuffix}.", RedactToken(_options.ApiToken));
+            if (_options.ValidateTokenOnStartup)
+            {
+                ValidateTokenOnStartup();
+            }
+        }
+        else
+        {
+            _logger?.LogWarning("No API token configured; running in demo mode.");
+        }
     }
 
     public RateLimitSnapshot? LatestRateLimit => Volatile.Read(ref _latestRateLimit);
@@ -91,6 +110,7 @@ internal sealed class ApiClient
         {
             try
             {
+                _logger?.LogDebug("Sending GET request to {RequestUrl}.", SafeUri(requestUri));
                 return await SendOnceAsync(requestUri, cancellationToken).ConfigureAwait(false);
             }
             catch (MarketDataException exception) when (
@@ -105,6 +125,15 @@ internal sealed class ApiClient
                 activity?.SetTag("marketdata.retry.delay_ms", delay.TotalMilliseconds);
                 activity?.SetTag("error.type", exception.GetType().Name);
                 await Task.Delay(delay, _options.TimeProvider, cancellationToken).ConfigureAwait(false);
+            }
+            catch (MarketDataException exception)
+            {
+                _logger?.LogError(
+                    exception,
+                    "Market Data request failed with {ExceptionType} for {RequestUrl}.",
+                    exception.ExceptionType,
+                    SafeUri(exception.RequestUrl));
+                throw;
             }
         }
     }
@@ -165,6 +194,10 @@ internal sealed class ApiClient
             }
 
             var result = new InternalApiResponse(body, requestUri, (int)response.StatusCode, requestId, rateLimit);
+            _logger?.LogDebug(
+                "Received HTTP {StatusCode} from {RequestUrl}.",
+                (int)response.StatusCode,
+                SafeUri(requestUri));
             activity?.SetTag("http.response.status_code", (int)response.StatusCode);
             activity?.SetTag("marketdata.request_id", requestId);
             if ((int)response.StatusCode is >= 200 and < 300 or 404)
@@ -197,7 +230,7 @@ internal sealed class ApiClient
 
     private static bool IsRetryable(MarketDataException exception) =>
         exception is NetworkException
-        || exception.StatusCode is 408 or 429 or >= 500;
+        || exception.StatusCode is >= 501 and <= 599;
 
     private TimeSpan RetryDelay(MarketDataException exception, int retryCount)
     {
@@ -397,6 +430,30 @@ internal sealed class ApiClient
 
     private static Uri SafeUri(Uri requestUri) =>
         new UriBuilder(requestUri) { Query = string.Empty, Fragment = string.Empty }.Uri;
+
+    private void ValidateTokenOnStartup()
+    {
+        try
+        {
+            _ = GetAsync(
+                "user",
+                versioned: false,
+                Array.Empty<KeyValuePair<string, string?>>(),
+                CancellationToken.None).GetAwaiter().GetResult();
+        }
+        catch (MarketDataException exception)
+        {
+            _logger?.LogError(
+                exception,
+                "Startup token validation failed with {ExceptionType} for {RequestUrl}.",
+                exception.ExceptionType,
+                SafeUri(exception.RequestUrl));
+            throw;
+        }
+    }
+
+    private static string RedactToken(string token) =>
+        token.Length <= 4 ? "****" : $"****{token[^4..]}";
 
     private sealed class MarketDataExceptionAdapter(string message, ErrorContext context)
         : MarketDataException(message, context);

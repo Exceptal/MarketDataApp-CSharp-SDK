@@ -2,6 +2,7 @@ using DotNetEnv.Configuration;
 using Microsoft.Extensions.Configuration;
 using System.Globalization;
 using System.Reflection;
+using Microsoft.Extensions.Logging;
 
 namespace MarketDataApp;
 
@@ -34,6 +35,13 @@ public sealed record MarketDataClientOptions
     public TimeProvider TimeProvider { get; init; } = TimeProvider.System;
     /// <summary>User-agent value sent by the client.</summary>
     public string UserAgent { get; init; } = DefaultUserAgentValue;
+    /// <summary>Logger used for SDK lifecycle, request, response, and error diagnostics.</summary>
+    public ILogger? Logger { get; init; }
+    /// <summary>
+    /// Validates an authenticated token with <c>/user/</c> during client construction.
+    /// Set to <c>false</c> for short-lived runtimes that prefer first-request (lazy) validation.
+    /// </summary>
+    public bool ValidateTokenOnStartup { get; init; } = true;
 
     /// <summary>
     /// Loads MARKETDATA_* values from user secrets, an optional .env file, and process

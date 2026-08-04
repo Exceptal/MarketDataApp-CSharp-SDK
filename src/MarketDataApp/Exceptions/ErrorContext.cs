@@ -3,6 +3,18 @@ namespace MarketDataApp.Exceptions;
 /// <summary>Diagnostic context attached to every <see cref="MarketDataException"/>.</summary>
 public sealed record ErrorContext
 {
+    private static readonly Lazy<TimeZoneInfo> EasternTimeZone = new(() =>
+    {
+        try
+        {
+            return TimeZoneInfo.FindSystemTimeZoneById("America/New_York");
+        }
+        catch (TimeZoneNotFoundException)
+        {
+            return TimeZoneInfo.FindSystemTimeZoneById("Eastern Standard Time");
+        }
+    });
+
     /// <summary>Server-assigned request identifier, if present in the response.</summary>
     public string? RequestId { get; init; }
 
@@ -17,9 +29,12 @@ public sealed record ErrorContext
 
     /// <summary>Creates context for a response that was received from the server.</summary>
     public static ErrorContext ForResponse(string? requestId, Uri requestUrl, int statusCode, DateTimeOffset timestamp) =>
-        new() { RequestId = requestId, RequestUrl = requestUrl, StatusCode = statusCode, Timestamp = timestamp };
+        new() { RequestId = requestId, RequestUrl = requestUrl, StatusCode = statusCode, Timestamp = ToEastern(timestamp) };
 
     /// <summary>Creates context for a failure where no HTTP response was received.</summary>
     public static ErrorContext ForNoResponse(Uri requestUrl, DateTimeOffset timestamp) =>
-        new() { RequestUrl = requestUrl, StatusCode = 0, Timestamp = timestamp };
+        new() { RequestUrl = requestUrl, StatusCode = 0, Timestamp = ToEastern(timestamp) };
+
+    private static DateTimeOffset ToEastern(DateTimeOffset timestamp) =>
+        TimeZoneInfo.ConvertTime(timestamp, EasternTimeZone.Value);
 }
