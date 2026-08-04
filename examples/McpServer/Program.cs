@@ -9,7 +9,7 @@
 // MCP clients should launch this project and communicate over standard input/output.
 // Logging is routed to stderr so it does not corrupt the MCP JSON-RPC stream.
 
-using MarketData;
+using MarketDataApp;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -49,7 +49,7 @@ public sealed class MarketDataTools(MarketDataClient marketData)
         CancellationToken cancellationToken)
     {
         var response = await marketData.Stocks.GetQuoteAsync(
-            new MarketData.Stocks.StockQuoteRequest(symbol),
+            new MarketDataApp.Stocks.StockQuoteRequest(symbol),
             cancellationToken: cancellationToken);
 
         return new
@@ -68,8 +68,8 @@ public sealed class MarketDataTools(MarketDataClient marketData)
         CancellationToken cancellationToken = default)
     {
         var response = await marketData.Stocks.GetCandlesAsync(
-            new MarketData.Stocks.StockCandlesRequest(
-                MarketData.Stocks.StockResolution.Of(resolution),
+            new MarketDataApp.Stocks.StockCandlesRequest(
+                MarketDataApp.Stocks.StockResolution.Of(resolution),
                 symbol)
             {
                 Countback = countback
@@ -92,7 +92,7 @@ public sealed class MarketDataTools(MarketDataClient marketData)
         CancellationToken cancellationToken = default)
     {
         var response = await marketData.Markets.GetStatusAsync(
-            new MarketData.Markets.MarketStatusRequest { Country = country },
+            new MarketDataApp.Markets.MarketStatusRequest { Country = country },
             cancellationToken: cancellationToken);
 
         return new

@@ -1,0 +1,13 @@
+<Solution>
+  <Folder Name="/docs/" />
+  <Folder Name="/examples/">
+    <Project Path="examples/McpServer/McpServer.csproj" />
+    <Project Path="examples/QuickStart/QuickStart.csproj" />
+    <Project Path="examples/WebApiSample/WebApiSample.csproj" />
+  </Folder>
+  <Folder Name="/src/">
+    <Project Path="src/MarketDataApp.IntegrationTests/MarketDataApp.IntegrationTests.csproj" />
+    <Project Path="src/MarketDataApp.Tests/MarketDataApp.Tests.csproj" />
+    <Project Path="src/MarketDataApp/MarketDataApp.csproj" />
+  </Folder>
+</Solution>

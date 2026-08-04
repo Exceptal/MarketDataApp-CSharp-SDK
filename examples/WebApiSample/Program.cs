@@ -14,11 +14,11 @@
 
 using System.ComponentModel;
 using System.Diagnostics;
-using MarketData;
-using MarketData.Exceptions;
-using MarketData.Funds;
-using MarketData.Options;
-using MarketData.Stocks;
+using MarketDataApp;
+using MarketDataApp.Exceptions;
+using MarketDataApp.Funds;
+using MarketDataApp.Options;
+using MarketDataApp.Stocks;
 using Microsoft.AspNetCore.Hosting.Server;
 using Microsoft.AspNetCore.Hosting.Server.Features;
 
@@ -207,7 +207,7 @@ app.MapGet("/market/status", async (
     try
     {
         var response = await marketData.Markets.GetStatusAsync(
-            new MarketData.Markets.MarketStatusRequest { Country = country ?? "US" },
+            new MarketDataApp.Markets.MarketStatusRequest { Country = country ?? "US" },
             cancellationToken: ct);
 
         return Results.Ok(response.Values);

@@ -16,7 +16,7 @@ on:
       version:
         description: |
           Package version to publish (e.g. 0.2.0).
-          Leave blank to use the Version declared in MarketData.csproj.
+          Leave blank to use the Version declared in MarketDataApp.csproj.
         required: false
         type: string
 
@@ -39,7 +39,7 @@ jobs:
           dotnet-quality: 'ga'
 
       - name: Restore
-        run: dotnet restore MarketData.slnx
+        run: dotnet restore MarketDataApp.slnx
 
       - name: Determine version
         id: ver
@@ -60,12 +60,12 @@ jobs:
           if [ -n "$VER" ]; then
             EXTRA="-p:Version=${VER}"
           fi
-          dotnet build MarketData.slnx --no-restore -c Release \
+          dotnet build MarketDataApp.slnx --no-restore -c Release \
             /p:ContinuousIntegrationBuild=true ${EXTRA}
 
       - name: Test
         run: |
-          dotnet test src/MarketData.Tests/MarketData.Tests.csproj \
+          dotnet test src/MarketDataApp.Tests/MarketDataApp.Tests.csproj \
             --no-build -c Release
 
       - name: Pack
@@ -76,7 +76,7 @@ jobs:
           if [ -n "$VER" ]; then
             EXTRA="-p:Version=${VER}"
           fi
-          dotnet pack src/MarketData/MarketData.csproj \
+          dotnet pack src/MarketDataApp/MarketDataApp.csproj \
             -c Release --no-build \
             /p:ContinuousIntegrationBuild=true \
             ${EXTRA} \

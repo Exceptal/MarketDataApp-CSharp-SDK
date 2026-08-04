@@ -17,7 +17,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\..\src\MarketData\MarketData.csproj" />
+    <ProjectReference Include="../../src/MarketDataApp/MarketDataApp.csproj" />
   </ItemGroup>
 
 </Project>

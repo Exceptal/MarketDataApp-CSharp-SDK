@@ -16,7 +16,7 @@ dotnet user-secrets set "MARKETDATA_TOKEN" "your-api-token"
 Load the provider and create options:
 
 ```csharp
-using MarketData;
+using MarketDataApp;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Hosting;
 

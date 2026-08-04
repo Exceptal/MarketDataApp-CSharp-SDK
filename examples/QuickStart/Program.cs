@@ -13,9 +13,9 @@
 //
 // Without a token the program prints the quick-start patterns but skips network calls.
 
-using MarketData;
-using MarketData.Exceptions;
-using MarketData.Stocks;
+using MarketDataApp;
+using MarketDataApp.Exceptions;
+using MarketDataApp.Stocks;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Hosting;
 

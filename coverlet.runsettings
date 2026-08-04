@@ -13,7 +13,7 @@
           <Format>opencover,json</Format>
 
           <!-- Exclude test assemblies from coverage measurement -->
-          <Exclude>[MarketData.Tests]*,[MarketData.IntegrationTests]*</Exclude>
+          <Exclude>[MarketDataApp.Tests]*,[MarketDataApp.IntegrationTests]*</Exclude>
 
           <!-- Ignore generated build artefacts -->
           <ExcludeByFile>**/obj/**,**/bin/**</ExcludeByFile>

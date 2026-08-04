@@ -7,16 +7,16 @@ This file helps Copilot-based sessions understand how to build, test, and reason
 ## Build, test, and lint commands
 
 - SDK requirement: dotnet 10 (see `global.json` - sdk version 10.0.302).
-- Build solution: `dotnet build` (or `dotnet build MarketData.slnx`).
+- Build solution: `dotnet build` (or `dotnet build MarketDataApp.slnx`).
 - Run full tests: `dotnet test` from repo root.
 - Run tests for the test project directly:
-  `dotnet test src/MarketData.Tests/MarketData.Tests/MarketData.Tests.csproj`
+  `dotnet test src/MarketDataApp.Tests/MarketDataApp.Tests/MarketDataApp.Tests.csproj`
 - Run a single test by FullyQualifiedName:
-  `dotnet test --filter "FullyQualifiedName=MarketData.Tests.Namespaces.ClassName.TestMethodName"`
+  `dotnet test --filter "FullyQualifiedName=MarketDataApp.Tests.Namespaces.ClassName.TestMethodName"`
   or by method name substring:
   `dotnet test --filter "Name~TestMethodName"`
 - Collect code coverage: `dotnet test --collect:"XPlat Code Coverage"` (project already references coverlet.collector).
-- Create NuGet package: `dotnet pack src/MarketData/MarketData.csproj -c Release`.
+- Create NuGet package: `dotnet pack src/MarketDataApp/MarketDataApp.csproj -c Release`.
 
 Notes:
 - The library sets `<TreatWarningsAsErrors>true</TreatWarningsAsErrors>` in the library project; fix warnings or the build will fail.
@@ -32,8 +32,8 @@ Notes:
 - Data model:
   - Requests: immutable record types (e.g., StockPricesRequest) that validate arguments in constructors.
   - Responses: typed response records deriving from MarketDataResponse<T>. Responses include metadata (StatusCode, RequestUrl, RequestId, RateLimit) and expose RawBody and SaveToFile.
-- Error handling: a sealed exception hierarchy under MarketData.Exceptions (AuthenticationException, RateLimitException, ServerException, ParseException, NetworkException, etc.) with ErrorContext attached.
-- Tests: xUnit-based project (src/MarketData.Tests/MarketData.Tests). Tests use a lightweight StubHttpMessageHandler and MarketDataTestClient helpers to create deterministic HttpClient-backed MarketDataClient instances.
+- Error handling: a sealed exception hierarchy under MarketDataApp.Exceptions (AuthenticationException, RateLimitException, ServerException, ParseException, NetworkException, etc.) with ErrorContext attached.
+- Tests: xUnit-based project (src/MarketDataApp.Tests/MarketDataApp.Tests). Tests use a lightweight StubHttpMessageHandler and MarketDataTestClient helpers to create deterministic HttpClient-backed MarketDataClient instances.
 
 ---
 
@@ -50,12 +50,12 @@ Notes:
 
 ## Related files to consult
 
-- src/MarketData/ApiClient.cs (transport, retry, rate-limit parsing)
-- src/MarketData/JsonResponseParser.cs (decoding JSON, CSV response creation)
-- src/MarketData/MarketDataClient.cs (public surface construction)
-- src/MarketData/MarketDataClientOptions.cs (configuration keys)
-- src/MarketData/Responses and src/MarketData/*Api.cs (request/response shapes)
-- src/MarketData.Tests/TestSupport (StubHttpMessageHandler, MarketDataTestClient)
+- src/MarketDataApp/ApiClient.cs (transport, retry, rate-limit parsing)
+- src/MarketDataApp/JsonResponseParser.cs (decoding JSON, CSV response creation)
+- src/MarketDataApp/MarketDataClient.cs (public surface construction)
+- src/MarketDataApp/MarketDataClientOptions.cs (configuration keys)
+- src/MarketDataApp/Responses and src/MarketDataApp/*Api.cs (request/response shapes)
+- src/MarketDataApp.Tests/TestSupport (StubHttpMessageHandler, MarketDataTestClient)
 
 ---
 

@@ -66,7 +66,7 @@
 ## Installation
 
 ```shell
-dotnet add package MarketData
+dotnet add package MarketDataApp
 ```
 
 **Requirements**: .NET 10.0 or newer.
@@ -76,8 +76,8 @@ dotnet add package MarketData
 ## Quick start
 
 ```csharp
-using MarketData;
-using MarketData.Stocks;
+using MarketDataApp;
+using MarketDataApp.Stocks;
 
 var builder = Host.CreateApplicationBuilder(args);
 var options = MarketDataClientOptions.FromConfiguration(builder.Configuration);
@@ -524,7 +524,7 @@ File.WriteAllText("prices.csv", response.Csv);
 
 ## Exception handling
 
-All SDK exceptions derive from `MarketData.Exceptions.MarketDataException`.
+All SDK exceptions derive from `MarketDataApp.Exceptions.MarketDataException`.
 The closed hierarchy is:
 
 | Exception | StatusCode | When thrown |
@@ -674,7 +674,7 @@ The SDK emits `System.Diagnostics.Activity` spans via `MarketDataDiagnostics.Act
 
 | Name | `ActivitySource.Name` value |
 |------|-----------------------------|
-| `ActivitySourceName` | `"MarketData.SDK"` |
+| `ActivitySourceName` | `"MarketDataApp.SDK"` |
 
 | Activity name | Kind | Tags |
 |---------------|------|------|
@@ -707,7 +707,7 @@ ActivitySource.AddActivityListener(listener);
 
 ## Integration tests
 
-The integration test project `src/MarketData.IntegrationTests` requires a live API
+The integration test project `src/MarketDataApp.IntegrationTests` requires a live API
 token and uses standard .NET configuration. An environment-variable gate ensures it
 **never runs in normal CI**.
 
@@ -722,10 +722,10 @@ token and uses standard .NET configuration. An environment-variable gate ensures
 
 ```powershell
 dotnet user-secrets set "MARKETDATA_TOKEN" "your-api-token" `
-  --project src/MarketData.IntegrationTests
+  --project src/MarketDataApp.IntegrationTests
 $env:MARKETDATA_RUN_INTEGRATION_TESTS = "true"
 try {
-    dotnet test src/MarketData.IntegrationTests/MarketData.IntegrationTests.csproj
+    dotnet test src/MarketDataApp.IntegrationTests/MarketDataApp.IntegrationTests.csproj
 }
 finally {
     Remove-Item Env:MARKETDATA_RUN_INTEGRATION_TESTS -ErrorAction SilentlyContinue
