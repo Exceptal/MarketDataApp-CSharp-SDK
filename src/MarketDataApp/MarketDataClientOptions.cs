@@ -3,6 +3,7 @@ using Microsoft.Extensions.Configuration;
 using System.Globalization;
 using System.Reflection;
 using Microsoft.Extensions.Logging;
+using MarketDataApp.Extensions;
 
 namespace MarketDataApp;
 
@@ -64,11 +65,12 @@ public sealed record MarketDataClientOptions
         var envFile = Path.Combine(AppContext.BaseDirectory, ".env");
         if (File.Exists(envFile))
         {
+            // This will also add .env key/values in the process environment variables
             builder.AddDotNetEnv(envFile, new DotNetEnv.LoadOptions(clobberExistingVars: false));
         }
 
         return builder
-            .AddEnvironmentVariables()
+            .AddEnvironmentVariables(static key => key.StartsWith("MARKETDATA_"))
             .Build();
     }
 
