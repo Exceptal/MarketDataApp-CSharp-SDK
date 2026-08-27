@@ -14,6 +14,10 @@
 
 </div>
 
+> [!IMPORTANT]
+> **This project has moved to the official [MarketDataApp/sdk-csharp](https://github.com/MarketDataApp/sdk-csharp) repository.**<br />
+> This SDK was donated to Market Data Inc. and is now maintained there as the official MarketData.app C#/.NET SDK. Please use the official repository for current releases, documentation, issues, and contributions. You can also find package releases at [https://www.nuget.org/packages/MarketDataApp](https://www.nuget.org/packages/MarketDataApp).
+
 ## Features
 
 - **Async-first API**: Every endpoint is asynchronous, accepts an optional `CancellationToken`, and returns a typed response
